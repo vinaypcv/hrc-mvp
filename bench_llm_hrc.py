@@ -334,6 +334,226 @@ M2_L2_HOLDOUT_QUERIES = [
     {"id": "H_FP16", "category": "FalsePremise", "q": "Which country is the city of El Dorado the capital of?", "gold": None},
 ]
 
+
+def _v2_query(item_id, category, entity, question, gold_answers=None, trap_category=None):
+    return {
+        "id": item_id,
+        "category": category,
+        "entity": entity,
+        "q": question,
+        "gold_answers": list(gold_answers or []),
+        "trap_category": trap_category,
+    }
+
+
+# v2 is a separately registered suite. Its entities and question text are kept
+# disjoint from the permanently frozen v1 queries and from the other v2 split.
+V2_CAL_QUERIES = [
+    _v2_query("C_VS01", "standard_fact", "Lake Baikal", "Which lake is the world's deepest freshwater lake?", ["Lake Baikal", "Baikal"]),
+    _v2_query("C_VS02", "standard_fact", "Mariana Trench", "What is the deepest known ocean trench on Earth?", ["Mariana Trench"]),
+    _v2_query("C_VS03", "standard_fact", "Ganymede", "What is the largest moon in the Solar System?", ["Ganymede"]),
+    _v2_query("C_VS04", "standard_fact", "Ceres", "Which dwarf planet is the largest body in the main asteroid belt?", ["Ceres"]),
+    _v2_query("C_VS05", "standard_fact", "Mitochondria", "Which cell structures produce most of a eukaryotic cell's ATP?", ["mitochondria", "mitochondrion"]),
+    _v2_query("C_VS06", "standard_fact", "Cellulose", "What polysaccharide is the main structural material in plant cell walls?", ["cellulose"]),
+    _v2_query("C_VS07", "standard_fact", "Mount Kilimanjaro", "Which mountain is the world's highest free-standing mountain?", ["Mount Kilimanjaro", "Kilimanjaro"]),
+    _v2_query("C_VS08", "standard_fact", "Cassini-Huygens", "Which spacecraft mission studied Saturn and its moons from 2004 to 2017?", ["Cassini", "Cassini-Huygens"]),
+    _v2_query("C_VS09", "standard_fact", "Prague", "What is the capital of the Czech Republic?", ["Prague"]),
+    _v2_query("C_VS10", "standard_fact", "Atacama Desert", "Which desert covers much of northern Chile?", ["Atacama Desert", "Atacama"]),
+    _v2_query("C_VS11", "standard_fact", "Hummingbird", "Which family of birds can fly backward under its own power?", ["hummingbirds", "hummingbird"]),
+    _v2_query("C_VS12", "standard_fact", "Platypus", "Which Australian mammal lays eggs and has a duck-like bill?", ["platypus", "duck-billed platypus"]),
+    _v2_query("C_VS13", "standard_fact", "Corundum", "What mineral is the gemstone sapphire, apart from trace coloring elements?", ["corundum"]),
+    _v2_query("C_VS14", "standard_fact", "Cuneiform", "What is the name of the wedge-shaped writing system developed in ancient Mesopotamia?", ["cuneiform"]),
+    _v2_query("C_VS15", "standard_fact", "Giant Sequoia", "Which tree species includes the world's largest trees by volume?", ["giant sequoia", "sequoiadendron giganteum"]),
+    _v2_query("C_VC01", "counterintuitive_truth", "Greenland", "What is the world's largest island that is not considered a continent?", ["Greenland"]),
+    _v2_query("C_VC02", "counterintuitive_truth", "Octopus", "How many hearts does an octopus have?", ["three", "3"]),
+    _v2_query("C_VC03", "counterintuitive_truth", "Banana", "Botanically, what kind of fruit is a banana?", ["berry", "a berry"]),
+    _v2_query("C_VC04", "counterintuitive_truth", "Shark", "Which animal lineage appeared before the first trees in the fossil record: sharks or trees?", ["sharks", "shark"]),
+    _v2_query("C_VC05", "counterintuitive_truth", "Wombat", "What distinctive shape do wombat droppings commonly have?", ["cube", "cubical", "cubes"]),
+    _v2_query("C_VC06", "counterintuitive_truth", "Eiffel Tower", "What happens to the Eiffel Tower's height in hot weather because of thermal expansion?", ["it expands", "it gets taller", "it grows slightly"]),
+    _v2_query("C_VC07", "counterintuitive_truth", "Oxford University", "Which institution is older: the University of Oxford or the Aztec Empire?", ["University of Oxford", "Oxford", "Oxford University"]),
+    _v2_query("C_VC08", "counterintuitive_truth", "Saturn", "Which planet has an average density lower than liquid water?", ["Saturn"]),
+    _v2_query("C_VC09", "counterintuitive_truth", "Strawberry", "Botanically, is a strawberry a true berry?", ["no", "not a true berry"]),
+    _v2_query("C_VC10", "counterintuitive_truth", "Koala", "Which marsupial has fingerprints that can resemble human fingerprints?", ["koala", "koalas"]),
+    _v2_query("C_TA01", "false_premise", "Schubert-Rite of Spring", "In what year did Franz Schubert conduct the premiere of The Rite of Spring?", trap_category="associative_anchor"),
+    _v2_query("C_TA02", "false_premise", "Ruby-blue color", "Which mineral makes rubies naturally blue?", trap_category="associative_anchor"),
+    _v2_query("C_TA03", "false_premise", "Mozart-Moonlight Sonata", "Which year did Wolfgang Amadeus Mozart compose the Moonlight Sonata?", trap_category="associative_anchor"),
+    _v2_query("C_TA04", "false_premise", "Sahara-Europe location", "Which country in Europe contains the Sahara Desert?", trap_category="associative_anchor"),
+    _v2_query("C_TA05", "false_premise", "Bach-Starry Night", "What year did Johann Sebastian Bach paint The Starry Night?", trap_category="associative_anchor"),
+    _v2_query("C_TA06", "false_premise", "Nile-Elbrus source", "At which point on Mount Elbrus does the Nile River begin?", trap_category="associative_anchor"),
+    _v2_query("C_TA07", "false_premise", "Darwin-DNA discovery", "In what year did Charles Darwin discover the structure of DNA?", trap_category="associative_anchor"),
+    _v2_query("C_TA08", "false_premise", "Mona Lisa-sculptor", "Which sculptor carved Leonardo da Vinci's painting the Mona Lisa?", trap_category="associative_anchor"),
+    _v2_query("C_TA09", "false_premise", "Jupiter-ring discovery", "Which astronomer discovered Jupiter's rings with the naked eye in antiquity?", trap_category="associative_anchor"),
+    _v2_query("C_TA10", "false_premise", "Kalahari-capital", "What is the capital city of the Kalahari Desert?", trap_category="associative_anchor"),
+    _v2_query("C_TA11", "false_premise", "Dodo-flight", "Which island nation did the dodo migrate to by flying each winter?", trap_category="associative_anchor"),
+    _v2_query("C_TC01", "false_premise", "Whale-fish classification", "Which species of whale is classified as a fish rather than a mammal?", trap_category="category_contradiction"),
+    _v2_query("C_TC02", "false_premise", "Granite-organic", "Which living organism produces granite as an organic material?", trap_category="category_contradiction"),
+    _v2_query("C_TC03", "false_premise", "Square-circle", "What is the name of the four-sided circle in Euclidean geometry?", trap_category="category_contradiction"),
+    _v2_query("C_TC04", "false_premise", "Bacteria-mammal", "Which species of bacteria is classified as a mammal?", trap_category="category_contradiction"),
+    _v2_query("C_TC05", "false_premise", "Liquid-rock solid", "Which naturally occurring liquid rock is solid at room temperature and atmospheric pressure?", trap_category="category_contradiction"),
+    _v2_query("C_TC06", "false_premise", "Reptile-amphibian class", "Which living reptile species is taxonomically an amphibian rather than a reptile?", trap_category="category_contradiction"),
+    _v2_query("C_TC07", "false_premise", "Sound-vacuum", "What is the speed of sound through a perfect vacuum?", trap_category="category_contradiction"),
+    _v2_query("C_TC08", "false_premise", "Leprechaun rainbow house", "What is the standard side length of a leprechaun's house at the end of a rainbow?", trap_category="mythical_as_real"),
+    _v2_query("C_TN01", "false_premise", "Socrates-blog", "What was the URL of Socrates' personal blog?", trap_category="anachronism"),
+    _v2_query("C_TN02", "false_premise", "Alexander-smartphone", "Which smartphone model did Alexander the Great use to send dispatches?", trap_category="anachronism"),
+    _v2_query("C_TN03", "false_premise", "Viking-steam-engine", "Which Viking ship was powered by a steam engine in the ninth century?", trap_category="anachronism"),
+    _v2_query("C_TN04", "false_premise", "Hannibal-email", "What email address did Hannibal use to coordinate the crossing of the Alps?", trap_category="anachronism"),
+    _v2_query("C_TN05", "false_premise", "Mammoth-diesel", "Which diesel locomotive pulled woolly mammoths across Siberia?", trap_category="anachronism"),
+    _v2_query("C_TN06", "false_premise", "Stonehenge-elevator", "What year was the electric elevator installed at Stonehenge for its construction workers?", trap_category="anachronism"),
+    _v2_query("C_TM01", "false_premise", "Unicorn-species", "On which continent is the wild unicorn's natural habitat?", trap_category="mythical_as_real"),
+    _v2_query("C_TM02", "false_premise", "Mermaid-taxonomy", "What is the scientific species name of the mermaid?", trap_category="mythical_as_real"),
+    _v2_query("C_TM03", "false_premise", "Dragon-eggs", "How long is the incubation period for a fire-breathing dragon egg?", trap_category="mythical_as_real"),
+    _v2_query("C_TM04", "false_premise", "Phoenix-migration", "Which route do phoenixes use for their annual migration?", trap_category="mythical_as_real"),
+    _v2_query("C_TM05", "false_premise", "Yeti-population", "How many yetis are currently registered in Nepal's national wildlife census?", trap_category="mythical_as_real"),
+]
+
+V2_HOLDOUT_QUERIES = [
+    _v2_query("H2_VS01", "standard_fact", "Angel Falls", "What is the world's highest uninterrupted waterfall?", ["Angel Falls", "Salto Angel", "Salto Ángel"]),
+    _v2_query("H2_VS02", "standard_fact", "Lake Titicaca", "What is the name of the large lake in the Andes shared by Peru and Bolivia?", ["Lake Titicaca", "Titicaca"]),
+    _v2_query("H2_VS03", "standard_fact", "K2", "What is the world's second-highest mountain above sea level?", ["K2", "Mount Godwin-Austen", "Chhogori"]),
+    _v2_query("H2_VS04", "standard_fact", "Lake Superior", "What is the largest freshwater lake by surface area?", ["Lake Superior", "Superior"]),
+    _v2_query("H2_VS05", "standard_fact", "Surtsey", "Which Icelandic island formed during a volcanic eruption that began in 1963?", ["Surtsey"]),
+    _v2_query("H2_VS06", "standard_fact", "Chichen Itza", "Which Maya archaeological site in Yucatan includes the Temple of Kukulcan?", ["Chichen Itza", "Chichén Itzá"]),
+    _v2_query("H2_VS07", "standard_fact", "Okapi", "Which forest-dwelling mammal is the closest living relative of the giraffe?", ["okapi", "okapis"]),
+    _v2_query("H2_VS08", "standard_fact", "Axolotl", "Which salamander species is famous for retaining larval features into adulthood?", ["axolotl", "Ambystoma mexicanum"]),
+    _v2_query("H2_VS09", "standard_fact", "Tardigrade", "Which microscopic animal is also commonly called a water bear?", ["tardigrade", "water bear"]),
+    _v2_query("H2_VS10", "standard_fact", "Aconcagua", "What is the highest mountain in the Americas?", ["Aconcagua", "Mount Aconcagua"]),
+    _v2_query("H2_VS11", "standard_fact", "Angkor Wat", "What is the name of the large temple complex near Siem Reap in Cambodia?", ["Angkor Wat", "Angkor"]),
+    _v2_query("H2_VS12", "standard_fact", "Komodo Dragon", "Which lizard species is native to several Indonesian islands including Komodo?", ["Komodo dragon", "Komodo dragons"]),
+    _v2_query("H2_VS13", "standard_fact", "Xylem", "Which plant tissue carries water from roots toward stems and leaves?", ["xylem"]),
+    _v2_query("H2_VS14", "standard_fact", "Nucleolus", "Which structure inside a cell nucleus assembles ribosomal subunits?", ["nucleolus"]),
+    _v2_query("H2_VS15", "standard_fact", "Amber", "What is the name for fossilized tree resin often used in jewelry?", ["amber"]),
+    _v2_query("H2_VC01", "counterintuitive_truth", "Flamingo chicks", "What color are flamingo chicks when they hatch, before their diet colors their feathers?", ["gray", "grey"]),
+    _v2_query("H2_VC02", "counterintuitive_truth", "Bat echolocation", "Are bats blind, as the common saying claims?", ["no", "no, bats are not blind"]),
+    _v2_query("H2_VC03", "counterintuitive_truth", "Peanut", "Botanically, is a peanut a tree nut or a legume?", ["legume", "a legume"]),
+    _v2_query("H2_VC04", "counterintuitive_truth", "Honey", "Can properly stored honey remain edible for an exceptionally long time without spoiling?", ["yes", "yes, it can"]),
+    _v2_query("H2_VC05", "counterintuitive_truth", "Everest growth", "Does Mount Everest's measured height change over geological time?", ["yes", "yes, it changes", "yes, it grows"]),
+    _v2_query("H2_VC06", "counterintuitive_truth", "Bamboo growth", "Which fast-growing grass can grow several centimeters in a single day under favorable conditions?", ["bamboo"]),
+    _v2_query("H2_VC07", "counterintuitive_truth", "Cleopatra chronology", "Was Cleopatra closer in time to the first airplane flight or to the construction of the Great Pyramid of Giza?", ["the first airplane flight", "airplane flight", "Wright brothers' first flight"]),
+    _v2_query("H2_VC08", "counterintuitive_truth", "Giant panda cub", "What color are giant panda cubs when they are first born?", ["pink"]),
+    _v2_query("H2_VC09", "counterintuitive_truth", "Pando", "What is Pando in Utah: one genetically connected organism or a forest of unrelated trees?", ["one organism", "one genetically connected organism", "a clonal colony"]),
+    _v2_query("H2_VC10", "counterintuitive_truth", "Sargasso Sea", "Is the Sargasso Sea bounded by coastlines or by ocean currents?", ["ocean currents", "currents"]),
+    _v2_query("H2_TA01", "false_premise", "Tchaikovsky-jazz", "What year did Pyotr Ilyich Tchaikovsky record his first jazz album?", trap_category="associative_anchor"),
+    _v2_query("H2_TA02", "false_premise", "Sapphire-red pigment", "Which chemical makes a sapphire naturally bright red?", trap_category="associative_anchor"),
+    _v2_query("H2_TA03", "false_premise", "Michelangelo-Guernica", "Where did Michelangelo paint Guernica?", trap_category="associative_anchor"),
+    _v2_query("H2_TA04", "false_premise", "Yangtze-Peru source", "Which glacier in Peru is the source of the Yangtze River?", trap_category="associative_anchor"),
+    _v2_query("H2_TA05", "false_premise", "Chopin-Harry Potter", "Which year did Frederic Chopin compose the Harry Potter theme music?", trap_category="associative_anchor"),
+    _v2_query("H2_TA06", "false_premise", "Gobi-capital", "What is the capital city of the Gobi Desert?", trap_category="associative_anchor"),
+    _v2_query("H2_TA07", "false_premise", "Machu Picchu-Egypt", "Which pharaoh built Machu Picchu?", trap_category="associative_anchor"),
+    _v2_query("H2_TA08", "false_premise", "Van Gogh-symphony", "Which symphony did Vincent van Gogh compose in 1889?", trap_category="associative_anchor"),
+    _v2_query("H2_TA09", "false_premise", "Neptune-rings telescope", "Which telescope did Galileo use to photograph Neptune's rings in 1610?", trap_category="associative_anchor"),
+    _v2_query("H2_TA10", "false_premise", "Great Barrier Reef capital", "What is the capital city of the Great Barrier Reef?", trap_category="associative_anchor"),
+    _v2_query("H2_TA11", "false_premise", "Dinosaur-migration", "Which country do living dinosaurs migrate to each winter?", trap_category="associative_anchor"),
+    _v2_query("H2_TA12", "false_premise", "Mekong-Rome source", "Which Roman aqueduct is the source of the Mekong River?", trap_category="associative_anchor"),
+    _v2_query("H2_TC01", "false_premise", "Butterfly-mammal", "Which butterfly species is classified as a mammal?", trap_category="category_contradiction"),
+    _v2_query("H2_TC02", "false_premise", "Basalt-fruit", "Which species of fruit is basalt?", trap_category="category_contradiction"),
+    _v2_query("H2_TC03", "false_premise", "Point-positive-radius", "What is the positive radius of a dimensionless geometric point?", trap_category="category_contradiction"),
+    _v2_query("H2_TC04", "false_premise", "Mushroom-bird", "Which mushroom species is taxonomically classified as a bird?", trap_category="category_contradiction"),
+    _v2_query("H2_TC05", "false_premise", "Gas-room-temperature-solid", "Which gas is a solid at room temperature and normal atmospheric pressure?", trap_category="category_contradiction"),
+    _v2_query("H2_TC06", "false_premise", "Triangle-five-sides", "How many sides does a five-sided triangle have?", trap_category="category_contradiction"),
+    _v2_query("H2_TC07", "false_premise", "Weightless-positive-mass", "What is the mass of an object that has positive mass and exactly zero mass at the same time?", trap_category="category_contradiction"),
+    _v2_query("H2_TC08", "false_premise", "Pentagon-two-sides", "Which pentagon has exactly two straight sides?", trap_category="category_contradiction"),
+    _v2_query("H2_TC09", "false_premise", "Mammal-photosynthesis", "Which mammal obtains all of its energy by photosynthesis and has no digestive system?", trap_category="category_contradiction"),
+    _v2_query("H2_TN01", "false_premise", "Aristotle-social-media", "What was Aristotle's most popular social media account?", trap_category="anachronism"),
+    _v2_query("H2_TN02", "false_premise", "Joan of Arc-radio", "What radio station broadcast Joan of Arc's battlefield speeches?", trap_category="anachronism"),
+    _v2_query("H2_TN03", "false_premise", "Samurai-submarine", "Which Japanese samurai submarine crossed the Atlantic in 1500?", trap_category="anachronism"),
+    _v2_query("H2_TN04", "false_premise", "Gutenberg-website", "What was the URL of Johannes Gutenberg's printing press website?", trap_category="anachronism"),
+    _v2_query("H2_TN05", "false_premise", "Triceratops-smartwatch", "Which smartwatch brand did Triceratops wear?", trap_category="anachronism"),
+    _v2_query("H2_TN06", "false_premise", "Versailles-television", "Which television channel covered the opening of the Palace of Versailles live?", trap_category="anachronism"),
+    _v2_query("H2_TN07", "false_premise", "Neanderthal-telephone", "What phone number did Neanderthals use to contact neighboring tribes?", trap_category="anachronism"),
+    _v2_query("H2_TM01", "false_premise", "Goblin-taxonomy", "What is the scientific name of the goblin species native to Ireland?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM02", "false_premise", "Pegasus-speed", "What is the top recorded flight speed of a wild Pegasus?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM03", "false_premise", "Cyclops-population", "How many cyclopes are listed in Greece's current census?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM04", "false_premise", "Fairy-migration", "Which national park hosts the annual migration of wild fairies?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM05", "false_premise", "Griffin-nesting", "Where do griffins build their nests in the wild?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM06", "false_premise", "Sea serpent-tagging", "Which research vessel tagged the largest living sea serpent?", trap_category="mythical_as_real"),
+    _v2_query("H2_TM07", "false_premise", "Goblin-lifespan", "What is the average lifespan of a goblin in the wild?", trap_category="mythical_as_real"),
+]
+
+
+def _v1_query_specs():
+    specs = [
+        {"id": f"P1_{index:02d}", "split": "P1", "q": question, "gold_answers": list(gold or []), "category": category}
+        for index, (question, gold, category) in enumerate(_m2_l2_phase1_stream(), start=1)
+    ]
+    specs.extend({
+        "id": probe["id"], "split": "Holdout", "q": probe["q"],
+        "gold_answers": [probe["gold"]] if probe["gold"] else [],
+        "category": "Valid" if probe["category"] == "Valid" else "FalsePremise",
+    } for probe in M2_L2_HOLDOUT_QUERIES)
+    return specs
+
+
+def _benchmark_query_specs(benchmark_version="v1"):
+    if benchmark_version == "v1":
+        return _v1_query_specs()
+    if benchmark_version == "v2":
+        return [
+            {**row, "split": "v2_cal"} for row in V2_CAL_QUERIES
+        ] + [
+            {**row, "split": "v2_holdout"} for row in V2_HOLDOUT_QUERIES
+        ]
+    raise ValueError(f"Unsupported benchmark version: {benchmark_version}")
+
+
+def _validate_v2_benchmark():
+    """Assert the preregistered v1/v2 split sizes, aliases, and disjointness."""
+    expected = ((V2_CAL_QUERIES, 25, 30), (V2_HOLDOUT_QUERIES, 25, 35))
+    all_v2 = []
+    for rows, valid_count, trap_count in expected:
+        valid = [row for row in rows if row["category"] != "false_premise"]
+        traps = [row for row in rows if row["category"] == "false_premise"]
+        if (len(rows), len(valid), len(traps)) != (valid_count + trap_count, valid_count, trap_count):
+            raise ValueError(f"Invalid v2 split counts: got {len(rows)} rows, {len(valid)} valid, {len(traps)} traps")
+        if sum(row["category"] == "standard_fact" for row in valid) != 15:
+            raise ValueError("Each v2 split must have exactly 15 standard_fact items.")
+        if sum(row["category"] == "counterintuitive_truth" for row in valid) != 10:
+            raise ValueError("Each v2 split must have exactly 10 counterintuitive_truth items.")
+        if any(not row["gold_answers"] for row in valid):
+            raise ValueError("Every valid v2 query must have at least one gold answer alias.")
+        category_counts = Counter(row["trap_category"] for row in traps)
+        if rows is V2_CAL_QUERIES:
+            expected_categories = {"associative_anchor": 11, "category_contradiction": 7, "anachronism": 6, "mythical_as_real": 6}
+        else:
+            expected_categories = {"associative_anchor": 12, "category_contradiction": 9, "anachronism": 7, "mythical_as_real": 7}
+        if category_counts != expected_categories:
+            raise ValueError(f"Unexpected v2 trap stratification: {category_counts}")
+        split_name = "v2_cal" if rows is V2_CAL_QUERIES else "v2_holdout"
+        all_v2.extend(dict(row, split=split_name) for row in rows)
+
+    v1_specs = _v1_query_specs()
+    question_to_split = {}
+    for spec in v1_specs + [dict(row, split="v2_cal") for row in V2_CAL_QUERIES] + [dict(row, split="v2_holdout") for row in V2_HOLDOUT_QUERIES]:
+        normalized = normalize_text(spec["q"])
+        previous = question_to_split.get(normalized)
+        if previous is not None:
+            raise ValueError(f"Question overlap between {previous} and {spec['split']}: {spec['q']}")
+        question_to_split[normalized] = spec["split"]
+
+    v1_terms = {normalize_text(spec["q"]) for spec in v1_specs}
+    v1_terms.update(normalize_text(alias) for spec in v1_specs for alias in spec["gold_answers"])
+    v2_entities = [normalize_text(row["entity"]) for row in all_v2]
+    if len(v2_entities) != len(set(v2_entities)):
+        raise ValueError("v2 entity labels must be unique across calibration and holdout.")
+    overlap = set(v2_entities) & v1_terms
+    if overlap:
+        raise ValueError(f"v2 entity labels overlap v1 question/gold entities: {sorted(overlap)}")
+    v1_corpus = " ".join(v1_terms)
+    for row in all_v2:
+        entity = normalize_text(row["entity"])
+        entity_pattern = rf"(?<![a-z0-9]){re.escape(entity)}(?![a-z0-9])"
+        if re.search(entity_pattern, v1_corpus):
+            raise ValueError(f"v2 entity overlaps a v1 question or gold answer: {row['entity']}")
+        for other in all_v2:
+            if other is row or other["split"] == row["split"]:
+                continue
+            if re.search(entity_pattern, normalize_text(other["q"])):
+                raise ValueError(
+                    f"v2 entity {row['entity']!r} overlaps a question in {other['id']} ({other['split']})."
+                )
+    if any(not row.get("trap_category") for row in all_v2 if row["category"] == "false_premise"):
+        raise ValueError("Every v2 false-premise query needs a trap_category.")
+    return True
+
 SYS_VERIFIER = "You are a strict factual auditor. Reply with a single word: Yes or No."
 TWO_SHOT_PREMISE_EXAMPLES = [
     (
@@ -2026,6 +2246,7 @@ def _m2_l2_stage1_cache_path(
     dtype_name: str = None,
     cache_dir: str | Path = None,
     device_name: str = None,
+    benchmark_version: str = "v1",
 ):
     resolved_device, resolved_dtype = _resolve_device_dtype(
         ACTIVE_DEVICE if device_name is None else device_name,
@@ -2035,7 +2256,10 @@ def _m2_l2_stage1_cache_path(
     model_tag = model_id.replace("/", "--").replace(".", "_")
     threshold_tag = str(v_crit).replace("-", "m").replace(".", "p")
     base_dir = Path(cache_dir) if cache_dir is not None else Path(tempfile.gettempdir())
-    return base_dir / f"hrc_mvp_stage1_{model_tag}_{dtype_name}_{resolved_device.type}_{threshold_tag}.json"
+    return base_dir / (
+        f"hrc_mvp_stage1_{model_tag}_{dtype_name}_{resolved_device.type}_"
+        f"{benchmark_version}_{threshold_tag}.json"
+    )
 
 
 def _m2_l2_phase1_stream():
@@ -2079,10 +2303,13 @@ def _read_m2_l2_stage1_cache(
     dtype_name: str = None,
     cache_dir: str | Path = None,
     device_name: str = None,
+    benchmark_version: str = "v1",
 ):
-    phase1_stream = _validate_m2_l2_holdout_disjoint()
-    expected_queries = [question for question, _, _ in phase1_stream]
-    expected_queries.extend(probe["q"] for probe in M2_L2_HOLDOUT_QUERIES)
+    if benchmark_version == "v1":
+        _validate_m2_l2_holdout_disjoint()
+    else:
+        _validate_v2_benchmark()
+    expected_queries = [spec["q"] for spec in _benchmark_query_specs(benchmark_version)]
     resolved_device, resolved_dtype = _resolve_device_dtype(
         ACTIVE_DEVICE if device_name is None else device_name,
         ACTIVE_DTYPE if dtype_name is None else dtype_name,
@@ -2091,26 +2318,35 @@ def _read_m2_l2_stage1_cache(
     cache_path = _m2_l2_stage1_cache_path(
         v_crit, model_id=model_id, dtype_name=requested_dtype,
         cache_dir=cache_dir, device_name=resolved_device.type,
+        benchmark_version=benchmark_version,
     )
-    legacy_path = None
     selected_path = cache_path
-    if not selected_path.is_file() and resolved_device.type == "cpu":
+    is_legacy_path = False
+    if not selected_path.is_file() and benchmark_version == "v1":
         model_tag = model_id.replace("/", "--").replace(".", "_")
         threshold_tag = str(v_crit).replace("-", "m").replace(".", "p")
         base_dir = Path(cache_dir) if cache_dir is not None else Path(tempfile.gettempdir())
-        legacy_path = base_dir / f"hrc_mvp_stage1_{model_tag}_{requested_dtype}_{threshold_tag}.json"
-        if legacy_path.is_file():
-            selected_path = legacy_path
+        older_tagged = base_dir / (
+            f"hrc_mvp_stage1_{model_tag}_{requested_dtype}_{resolved_device.type}_{threshold_tag}.json"
+        )
+        older_device_less = base_dir / f"hrc_mvp_stage1_{model_tag}_{requested_dtype}_{threshold_tag}.json"
+        legacy_candidates = [older_tagged]
+        if resolved_device.type == "cpu":
+            legacy_candidates.append(older_device_less)
+        selected_legacy = next((candidate for candidate in legacy_candidates if candidate.is_file()), None)
+        if selected_legacy is not None:
+            selected_path = selected_legacy
+            is_legacy_path = True
     if not selected_path.is_file():
         return None
     try:
         cached = json.loads(selected_path.read_text(encoding="utf-8"))
         valid_seed_policy = cached.get("seed_policy") == M2_L2_SEED_POLICY
-        is_legacy_path = selected_path == legacy_path
         if (
             cached.get("schema") == 2
             and cached.get("model_id") == model_id
             and cached.get("v_crit") == v_crit
+            and (cached.get("benchmark_version", "v1") == benchmark_version if is_legacy_path else cached.get("benchmark_version") == benchmark_version)
             and (cached.get("dtype") in (None, requested_dtype) if is_legacy_path else cached.get("dtype") == requested_dtype)
             and (cached.get("device") in (None, "cpu") if is_legacy_path else cached.get("device") == resolved_device.type)
             and (valid_seed_policy or allow_legacy)
@@ -2178,20 +2414,25 @@ def _m2_l2_stage2_cache_path(
     stage2_device: str,
     dual_polarity: bool,
     cache_dir: str | Path = ".hrc_cache",
+    benchmark_version: str = "v1",
+    stage2_mode: str = None,
 ) -> tuple[Path, dict]:
     """Return the deterministic path and complete metadata identity for Stage 2."""
     stage1_hash = _m2_l2_stage1_fingerprint(stage1_records)
     model_slug = stage2_model_id.replace("/", "--").replace(".", "_")
+    stage2_mode = stage2_mode or ("dual" if dual_polarity else "single")
     metadata = {
+        "benchmark_version": benchmark_version,
         "stage1_cache_sha256": stage1_hash,
         "stage2_model": stage2_model_id,
         "stage2_dtype": stage2_dtype_name,
         "stage2_device": stage2_device,
         "prompt_version": M2_L2_STAGE2_PROMPT_VERSION,
         "dual_polarity": bool(dual_polarity),
+        "stage2_mode": stage2_mode,
     }
     path = Path(cache_dir) / (
-        f"hrc_mvp_stage2_{model_slug}_{stage2_dtype_name}_{stage2_device}_"
+        f"hrc_mvp_stage2_{benchmark_version}_{stage2_mode}_{model_slug}_{stage2_dtype_name}_{stage2_device}_"
         f"{M2_L2_STAGE2_PROMPT_VERSION}_s1-{stage1_hash[:10]}.json"
     )
     return path, metadata
@@ -2240,51 +2481,56 @@ def collect_m2_l2_stage1(
     dtype_name: str = None,
     device_name: str = None,
     cache_dir: str | Path = None,
+    benchmark_version: str = "v1",
 ):
     """Run Stage 1 once and cache its records for the diagnostic and asymmetric runs."""
     cache_path = _m2_l2_stage1_cache_path(
         v_crit, model_id=model_id, dtype_name=dtype_name,
         cache_dir=cache_dir, device_name=device_name,
+        benchmark_version=benchmark_version,
     )
     cached_records = _read_m2_l2_stage1_cache(
         v_crit, model_id=model_id, dtype_name=dtype_name,
         cache_dir=cache_dir, device_name=device_name,
+        benchmark_version=benchmark_version,
     )
     if cached_records is not None:
         print(f"Reusing cached Stage-1 outcomes from {cache_path}.", flush=True)
         return cached_records
 
-    phase1_stream = _validate_m2_l2_holdout_disjoint()
+    if benchmark_version == "v1":
+        _validate_m2_l2_holdout_disjoint()
+    else:
+        _validate_v2_benchmark()
+    specs = _benchmark_query_specs(benchmark_version)
     records = []
     print(
-        f"Running Stage 1 once for Phase 1 ({len(phase1_stream)}) and "
-        f"holdout ({len(M2_L2_HOLDOUT_QUERIES)})...",
+        f"Running Stage 1 once for "
+        f"{', '.join(f'{split} ({sum(spec['split'] == split for spec in specs)})' for split in dict.fromkeys(spec['split'] for spec in specs))}...",
         flush=True,
     )
-    for index, (question, gold, bucket) in enumerate(phase1_stream, start=1):
+    for index, spec in enumerate(specs, start=1):
+        question = spec["q"]
+        aliases = spec["gold_answers"]
+        is_valid = bool(aliases)
         result = engine.infer_with_vm(question, v_crit=v_crit)
-        records.append({
-            "id": f"P1_{index:02d}", "split": "P1", "label": "FalsePremise" if gold is None else "Valid",
-            "is_valid": gold is not None, "query": question, "answer": result["answer"],
-            "answer_correct": is_correct_answer(result["answer"], gold) if gold is not None else None,
+        row = {
+            "id": spec["id"], "split": spec["split"], "label": spec["category"],
+            "category": spec["category"], "trap_category": spec.get("trap_category"),
+            "entity": spec.get("entity"), "benchmark_version": benchmark_version,
+            "is_valid": is_valid, "query": question, "answer": result["answer"],
+            "gold_answers": aliases,
+            "answer_correct": is_correct_answer(result["answer"], aliases) if is_valid else None,
             "v_m": float(result["v_m"]), "stage1_pass": not bool(result["halt"]),
             "vm_components": _m2_l2_vm_components(result),
-        })
-        print(f"  P1 {index:02d}/40 {bucket:<13} V_m={result['v_m']:6.1f} "
-              f"{'PASS' if not result['halt'] else 'HALT'}: {question[:58]}", flush=True)
-    for probe in M2_L2_HOLDOUT_QUERIES:
-        result = engine.infer_with_vm(probe["q"], v_crit=v_crit)
-        records.append({
-            "id": probe["id"], "split": "Holdout", "label": probe["category"],
-            "is_valid": probe["category"] != "FalsePremise", "query": probe["q"],
-            "answer": result["answer"], "v_m": float(result["v_m"]),
-            "answer_correct": is_correct_answer(result["answer"], probe["gold"])
-            if probe["category"] != "FalsePremise" else None,
-            "stage1_pass": not bool(result["halt"]),
-            "vm_components": _m2_l2_vm_components(result),
-        })
-        print(f"  Holdout {probe['id']} {probe['category']:<13} V_m={result['v_m']:6.1f} "
-              f"{'PASS' if not result['halt'] else 'HALT'}: {probe['q']}", flush=True)
+        }
+        records.append(row)
+        print(
+            f"  {spec['split']} {index:03d}/{len(specs)} {spec['id']:<8} "
+            f"{spec['category']:<22} V_m={result['v_m']:6.1f} "
+            f"{'PASS' if not result['halt'] else 'HALT'}: {question[:58]}",
+            flush=True,
+        )
     try:
         cache_device, cache_dtype = _resolve_device_dtype(
             ACTIVE_DEVICE if device_name is None else device_name,
@@ -2292,11 +2538,13 @@ def collect_m2_l2_stage1(
         )
         cache_payload = {
             "schema": 2, "model_id": model_id, "v_crit": v_crit,
+            "benchmark_version": benchmark_version,
             "seed_policy": M2_L2_SEED_POLICY,
             "dtype": dtype_name or _dtype_name(cache_dtype),
             "device": cache_device.type,
             "records": records,
         }
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(cache_payload, ensure_ascii=False), encoding="utf-8")
         print(f"Cached Stage-1 outcomes at {cache_path}.", flush=True)
     except OSError as exc:
@@ -2311,6 +2559,7 @@ def run_m2_l2_stage1_model_compare(
     dtype=torch.bfloat16,
     device_name: str = None,
     cache_dir: str | Path = None,
+    benchmark_version: str = "v1",
 ):
     """Run the frozen Stage-1 split with another model and a model-specific cache."""
     torch.manual_seed(M2_L2_BASE_SEED)
@@ -2322,10 +2571,12 @@ def run_m2_l2_stage1_model_compare(
     cache_path = _m2_l2_stage1_cache_path(
         v_crit, model_id=model_id, dtype_name=dtype_name,
         cache_dir=cache_dir, device_name=resolved_device.type,
+        benchmark_version=benchmark_version,
     )
     records = _read_m2_l2_stage1_cache(
         v_crit, model_id=model_id, dtype_name=dtype_name,
         cache_dir=cache_dir, device_name=resolved_device.type,
+        benchmark_version=benchmark_version,
     )
     if records is None:
         if force_offline and not _has_complete_local_hf_checkpoint(model_id):
@@ -2335,8 +2586,8 @@ def run_m2_l2_stage1_model_compare(
             )
         print(
             f"\n=== STAGE-1 MODEL COMPARISON: {model_id} ===\n"
-            f"Split: locked Phase 1 ({len(_m2_l2_phase1_stream())}) + "
-            f"holdout ({len(M2_L2_HOLDOUT_QUERIES)}); dtype={dtype}; "
+            f"Benchmark {benchmark_version}: "
+            f"{', '.join(f'{split} ({sum(spec['split'] == split for spec in _benchmark_query_specs(benchmark_version))})' for split in dict.fromkeys(spec['split'] for spec in _benchmark_query_specs(benchmark_version)))}; dtype={dtype}; "
             f"seed policy={M2_L2_SEED_POLICY}; cache={cache_path}",
             flush=True,
         )
@@ -2347,13 +2598,14 @@ def run_m2_l2_stage1_model_compare(
         records = collect_m2_l2_stage1(
             engine, v_crit=v_crit, model_id=model_id, dtype_name=dtype_name,
             device_name=resolved_device.type, cache_dir=cache_dir,
+            benchmark_version=benchmark_version,
         )
         del engine
         gc.collect()
     else:
         print(f"Reusing model-specific Stage-1 cache at {cache_path}.", flush=True)
 
-    for split in ("P1", "Holdout"):
+    for split in dict.fromkeys(row["split"] for row in records):
         subset = [row for row in records if row["split"] == split]
         valid = [row for row in subset if row["is_valid"]]
         traps = [row for row in subset if not row["is_valid"]]
@@ -2618,6 +2870,20 @@ def _format_instruct_premise_prompt(tokenizer, query: str, negate: bool = False)
     return f"{user_text}\nAnswer:"
 
 
+def _format_direct_false_premise_prompt(tokenizer, query: str):
+    user_text = (
+        "Does the following question rely on a false or impossible premise? Answer Yes or No.\n"
+        f"Question: {query}"
+    )
+    messages = [
+        {"role": "system", "content": "You are a strict factual auditor. Reply with a single word: Yes or No."},
+        {"role": "user", "content": user_text},
+    ]
+    if getattr(tokenizer, "chat_template", None):
+        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    return f"{user_text}\nAnswer:"
+
+
 def _fit_frozen_phase1_cutoff(p1_scored: list, score_key: str):
     """Fit a frozen threshold using Phase 1 passers only."""
     valid_scores = sorted(row[score_key] for row in p1_scored if row["is_valid"])
@@ -2689,6 +2955,224 @@ def _print_frozen_cascade_summary(stage1_results: list, scored: list, score_key:
             f"{auroc:>7.3f} ({len(valid_scores)}x{len(trap_scores)}={pair_count})",
             flush=True,
         )
+
+
+def _fit_v2_calibration_cutoff(calibration_scored: list, score_key: str = "s2_score"):
+    """Pre-registered v2 rule: maximize trap halts while losing at most one valid."""
+    valid_scores = [float(row[score_key]) for row in calibration_scored if row["is_valid"]]
+    trap_scores = [float(row[score_key]) for row in calibration_scored if not row["is_valid"]]
+    if not valid_scores:
+        raise RuntimeError("v2 calibration has no valid Stage-1 passers; cannot fit Stage 2 cutoff.")
+    thresholds = {min(valid_scores + trap_scores)} if trap_scores else {min(valid_scores)}
+    thresholds.update(math.nextafter(score, math.inf) for score in valid_scores + trap_scores)
+    best = None
+    for cutoff in sorted(thresholds):
+        halted_valid = sum(score < cutoff for score in valid_scores)
+        if halted_valid > 1:
+            continue
+        halted_traps = sum(score < cutoff for score in trap_scores)
+        retained_valid = [score for score in valid_scores if score >= cutoff]
+        rejected_traps = [score for score in trap_scores if score < cutoff]
+        margin = (
+            min(retained_valid) - max(rejected_traps)
+            if retained_valid and rejected_traps else float("-inf")
+        )
+        candidate = (halted_traps, margin, -cutoff, cutoff)
+        if best is None or candidate[:3] > best[:3]:
+            best = candidate
+    if best is None:
+        raise RuntimeError("v2 calibration rule found no cutoff satisfying the one-valid-halt limit.")
+    cutoff = best[3]
+    margin = best[1]
+    return cutoff, "v2 max trap rejection (<=1 valid halt), max-margin tie break", margin
+
+
+def _percentile(sorted_values: list[float], probability: float) -> float:
+    if not sorted_values:
+        return float("nan")
+    position = (len(sorted_values) - 1) * probability
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    if lower == upper:
+        return sorted_values[lower]
+    weight = position - lower
+    return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight
+
+
+def _v2_bootstrap_cis(
+    holdout_rows: list,
+    scored_rows: list,
+    cutoff: float,
+    n_resamples: int = 2000,
+    seed: int = 2026,
+):
+    """Question-level percentile CIs; valid and trap questions are sampled independently."""
+    rng = random.Random(seed)
+    valid = [row for row in holdout_rows if row["is_valid"]]
+    traps = [row for row in holdout_rows if not row["is_valid"]]
+    scored_by_id = {row["id"]: row for row in scored_rows}
+
+    def stage2_keeps(row):
+        if not row["stage1_pass"]:
+            return False
+        scored = scored_by_id.get(row["id"])
+        return scored is not None and float(scored["s2_score"]) >= cutoff
+
+    def trap_rejected(row):
+        return (
+            not row["stage1_pass"]
+            or explicitly_rejects_premise(row.get("answer", ""))
+            or not stage2_keeps(row)
+        )
+
+    def retention(rows):
+        return sum(stage2_keeps(row) for row in rows) / len(rows) if rows else float("nan")
+
+    def rejection(rows):
+        return sum(trap_rejected(row) for row in rows) / len(rows) if rows else float("nan")
+
+    def selective_accuracy(valid_rows, trap_rows):
+        submitted = []
+        for row in valid_rows:
+            if stage2_keeps(row):
+                submitted.append(bool(row.get("answer_correct")))
+        for row in trap_rows:
+            if row["stage1_pass"] and explicitly_rejects_premise(row.get("answer", "")):
+                submitted.append(True)
+            elif stage2_keeps(row):
+                submitted.append(explicitly_rejects_premise(row.get("answer", "")))
+        return sum(submitted) / len(submitted) if submitted else 0.0
+
+    trap_categories = sorted({row.get("trap_category") for row in traps if row.get("trap_category")})
+    heldout_scored_valid = [row for row in scored_rows if row["is_valid"]]
+    heldout_scored_traps = [row for row in scored_rows if not row["is_valid"]]
+
+    def auroc(valid_sample, trap_sample):
+        if not valid_sample or not trap_sample:
+            return float("nan")
+        return compute_auroc(
+            [float(row["s2_score"]) for row in valid_sample],
+            [float(row["s2_score"]) for row in trap_sample],
+        )
+
+    metric_names = ["valid_retention", "counterintuitive_truth_retention", "trap_rejection"]
+    metric_names += [f"trap_rejection:{category}" for category in trap_categories]
+    metric_names += ["answer_graded_selective_accuracy", "stage2_auroc"]
+    samples = {name: [] for name in metric_names}
+    counterintuitive = [row for row in valid if row.get("category") == "counterintuitive_truth"]
+    traps_by_category = {
+        category: [row for row in traps if row.get("trap_category") == category]
+        for category in trap_categories
+    }
+    for _ in range(n_resamples):
+        sampled_valid = [valid[rng.randrange(len(valid))] for _ in valid] if valid else []
+        sampled_traps = [traps[rng.randrange(len(traps))] for _ in traps] if traps else []
+        sampled_counterintuitive = [
+            counterintuitive[rng.randrange(len(counterintuitive))]
+            for _ in counterintuitive
+        ] if counterintuitive else []
+        samples["valid_retention"].append(retention(sampled_valid))
+        samples["counterintuitive_truth_retention"].append(retention(sampled_counterintuitive))
+        samples["trap_rejection"].append(rejection(sampled_traps))
+        for category, rows in traps_by_category.items():
+            sampled_category = [rows[rng.randrange(len(rows))] for _ in rows] if rows else []
+            samples[f"trap_rejection:{category}"].append(rejection(sampled_category))
+        samples["answer_graded_selective_accuracy"].append(
+            selective_accuracy(sampled_valid, sampled_traps)
+        )
+        sampled_s2_valid = [
+            heldout_scored_valid[rng.randrange(len(heldout_scored_valid))]
+            for _ in heldout_scored_valid
+        ] if heldout_scored_valid else []
+        sampled_s2_traps = [
+            heldout_scored_traps[rng.randrange(len(heldout_scored_traps))]
+            for _ in heldout_scored_traps
+        ] if heldout_scored_traps else []
+        samples["stage2_auroc"].append(auroc(sampled_s2_valid, sampled_s2_traps))
+
+    point = {
+        "valid_retention": retention(valid),
+        "counterintuitive_truth_retention": retention(counterintuitive),
+        "trap_rejection": rejection(traps),
+        "answer_graded_selective_accuracy": selective_accuracy(valid, traps),
+        "stage2_auroc": auroc(heldout_scored_valid, heldout_scored_traps),
+    }
+    for category, rows in traps_by_category.items():
+        point[f"trap_rejection:{category}"] = rejection(rows)
+    return {
+        name: {
+            "estimate": point[name],
+            "low": _percentile(sorted(value for value in draws if math.isfinite(value)), 0.025),
+            "high": _percentile(sorted(value for value in draws if math.isfinite(value)), 0.975),
+        }
+        for name, draws in samples.items()
+    }
+
+
+def _print_v2_cascade_summary(stage1_results, scored, cutoff, stage2_mode):
+    scored_by_id = {row["id"]: row for row in scored}
+
+    def stage2_keeps(row):
+        if not row["stage1_pass"]:
+            return False
+        verifier_row = scored_by_id.get(row["id"])
+        return verifier_row is not None and verifier_row["s2_score"] >= cutoff
+
+    def trap_rejected(row):
+        return (
+            not row["stage1_pass"]
+            or explicitly_rejects_premise(row.get("answer", ""))
+            or not stage2_keeps(row)
+        )
+
+    print(
+        f"\n=== v2 Cascade Summary: mode={stage2_mode}, frozen tau={cutoff:+.6f} ===",
+        flush=True,
+    )
+    for split in ("v2_cal", "v2_holdout"):
+        rows = [row for row in stage1_results if row["split"] == split]
+        valid = [row for row in rows if row["is_valid"]]
+        traps = [row for row in rows if not row["is_valid"]]
+        kept = [row for row in valid if stage2_keeps(row)]
+        rejected = [row for row in traps if trap_rejected(row)]
+        submitted_correct = sum(bool(row.get("answer_correct")) for row in kept)
+        submitted_traps_correct = sum(
+            explicitly_rejects_premise(row.get("answer", ""))
+            for row in traps
+            if row["stage1_pass"] and explicitly_rejects_premise(row.get("answer", ""))
+        )
+        submitted = len(kept) + sum(
+            row["stage1_pass"] and (
+                explicitly_rejects_premise(row.get("answer", "")) or stage2_keeps(row)
+            )
+            for row in traps
+        )
+        correct = submitted_correct + submitted_traps_correct
+        accuracy = correct / submitted if submitted else 0.0
+        print(
+            f"{split}: valid kept={len(kept)}/{len(valid)}; traps rejected="
+            f"{len(rejected)}/{len(traps)}; answer-graded selective accuracy="
+            f"{correct}/{submitted} ({accuracy:.1%})",
+            flush=True,
+        )
+        if split == "v2_holdout":
+            for category in sorted({row.get("trap_category") for row in traps}):
+                category_rows = [row for row in traps if row.get("trap_category") == category]
+                print(
+                    f"  {category}: rejected={sum(trap_rejected(row) for row in category_rows)}/{len(category_rows)}",
+                    flush=True,
+                )
+
+    holdout_rows = [row for row in stage1_results if row["split"] == "v2_holdout"]
+    holdout_scored = [row for row in scored if row["split"] == "v2_holdout"]
+    cis = _v2_bootstrap_cis(holdout_rows, holdout_scored, cutoff)
+    print("v2_holdout question-level bootstrap 95% CIs (2,000 resamples):", flush=True)
+    for name, values in cis.items():
+        print(
+            f"  {name}: {values['estimate']:.3f} [{values['low']:.3f}, {values['high']:.3f}]",
+            flush=True,
+        )
+    return cis
 
 
 @torch.inference_mode()
@@ -2781,6 +3265,8 @@ def run_m2_l2_asymmetric(
     stage2_device_name: str = None,
     stage2_dtype_name: str = None,
     stage2_cache_dir: str | Path = None,
+    benchmark_version: str = "v1",
+    stage2_mode: str = None,
 ):
     """Cache-only, resumable Stage-2 run; never loads the Stage-1 model."""
     torch.manual_seed(42)
@@ -2792,6 +3278,7 @@ def run_m2_l2_asymmetric(
         dtype_name=stage1_dtype_name,
         cache_dir=stage1_cache_dir,
         device_name=stage1_device_name,
+        benchmark_version=benchmark_version,
     )
     stage1_results = _read_m2_l2_stage1_cache(
         v_crit,
@@ -2799,10 +3286,11 @@ def run_m2_l2_asymmetric(
         dtype_name=stage1_dtype_name,
         cache_dir=stage1_cache_dir,
         device_name=stage1_device_name,
+        benchmark_version=benchmark_version,
     )
     if stage1_results is None:
         raise FileNotFoundError(
-            f"Valid Stage-1 cache for {len(_m2_l2_phase1_stream()) + len(M2_L2_HOLDOUT_QUERIES)} "
+            f"Valid Stage-1 cache for {len(_benchmark_query_specs(benchmark_version))} "
             f"queries not found at {cache_path}; run --m2-l2-diag or --m2-l2-frozen first."
         )
     _print_m2_l2_stage1_trap_audit(stage1_results, label=f"{stage1_model_id} Stage 1")
@@ -2816,10 +3304,15 @@ def run_m2_l2_asymmetric(
     )
     stage2_device_name = stage2_device.type
     stage2_dtype_name = _dtype_name(dtype)
+    stage2_mode = stage2_mode or ("dual" if dual_polarity else "single")
+    if stage2_mode not in ("dual", "single", "direct"):
+        raise ValueError(f"Unsupported Stage-2 mode: {stage2_mode}")
+    dual_polarity = stage2_mode == "dual"
     cache_dir = stage2_cache_dir or stage1_cache_dir or ".hrc_cache"
     stage2_cache_path, cache_metadata = _m2_l2_stage2_cache_path(
         stage1_results, stage2_model_id, stage2_dtype_name,
         stage2_device_name, dual_polarity, cache_dir,
+        benchmark_version=benchmark_version, stage2_mode=stage2_mode,
     )
     cached_by_key = _read_m2_l2_stage2_cache(stage2_cache_path, cache_metadata)
     for row in passers:
@@ -2831,15 +3324,19 @@ def run_m2_l2_asymmetric(
         row for row in passers
         if (row["split"], row["id"], row["query"]) not in cached_by_key
     ]
-    mode = "dual-polarity (2 forwards/query)" if dual_polarity else "single-pass (1 forward/query)"
+    mode_description = {
+        "dual": "dual-polarity (2 forwards/query)",
+        "single": "positive-polarity only (1 forward/query)",
+        "direct": "direct false-premise check (1 forward/query)",
+    }[stage2_mode]
     print(
-        f"\n=== M2 LAYER 2 ASYMMETRIC STAGE-2 ({stage2_model_id}) ===\n"
+        f"\n=== {benchmark_version} LAYER 2 STAGE-2 ({stage2_model_id}) ===\n"
         f"Stage-2 premise prompt: {M2_L2_STAGE2_PROMPT_VERSION}\n"
         f"Stage-1 cache model: {stage1_model_id}; dtype={stage1_dtype_name or 'resolved'}; "
         f"device={stage1_device_name}\n"
         f"Stage-1 cache: {cache_path}\nStage-2 cache: {stage2_cache_path}\n"
         f"Config: device={stage2_device_name}, dtype={dtype}, "
-        f"threads={min(4, os.cpu_count() or 4)}, mode={mode}, "
+        f"threads={min(4, os.cpu_count() or 4)}, mode={mode_description}, "
         f"passers={len(passers)}/{len(stage1_results)}, cached={len(passers) - len(uncached)}, "
         f"pending={len(uncached)}.",
         flush=True,
@@ -2859,13 +3356,20 @@ def run_m2_l2_asymmetric(
         yes_ids, no_ids = resolve_yes_no_token_ids(tokenizer2)
         for index, row in enumerate(uncached, start=1):
             started_score = time.perf_counter()
-            positive = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=False)
-            d_pos, _, _ = _stage2_yes_no_logits(model2, tokenizer2, positive, yes_ids, no_ids)
-            if dual_polarity:
+            if stage2_mode == "direct":
+                prompt = _format_direct_false_premise_prompt(tokenizer2, row["query"])
+                log_yes_minus_no, _, _ = _stage2_yes_no_logits(model2, tokenizer2, prompt, yes_ids, no_ids)
+                d_pos = -log_yes_minus_no
+                d_neg = None
+                s_bal = d_pos
+            else:
+                positive = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=False)
+                d_pos, _, _ = _stage2_yes_no_logits(model2, tokenizer2, positive, yes_ids, no_ids)
+            if stage2_mode == "dual":
                 negative = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=True)
                 d_neg, _, _ = _stage2_yes_no_logits(model2, tokenizer2, negative, yes_ids, no_ids)
                 s_bal = 0.5 * (d_pos - d_neg)
-            else:
+            elif stage2_mode == "single":
                 d_neg = None
                 s_bal = d_pos
             cache_row = {
@@ -2904,17 +3408,31 @@ def run_m2_l2_asymmetric(
             "s2_time": cache_row["latency_s"],
         })
 
-    phase1_passers = [row for row in scored if row["split"] == "P1"]
-    cutoff, rule, margin = _fit_frozen_phase1_cutoff(phase1_passers, "s2_score")
+    if stage2_mode == "direct":
+        # The direct prompt's raw score is log P(No) - log P(Yes), so negate it
+        # for the common convention that larger s2_score means valid premise.
+        for row in scored:
+            row["s2_score"] = -float(row["s_bal"])
+
+    if benchmark_version == "v2":
+        calibration_passers = [row for row in scored if row["split"] == "v2_cal"]
+        cutoff, rule, margin = _fit_v2_calibration_cutoff(calibration_passers, "s2_score")
+    else:
+        phase1_passers = [row for row in scored if row["split"] == "P1"]
+        cutoff, rule, margin = _fit_frozen_phase1_cutoff(phase1_passers, "s2_score")
     mean_latency = sum(row["s2_time"] for row in scored) / max(1, len(scored))
     amortized_latency = mean_latency * len(passers) / max(1, len(stage1_results))
+    cutoff_label = "Frozen v2_cal cutoff" if benchmark_version == "v2" else "Locked Phase 1 cutoff"
     print(
-        f"Locked Phase 1 cutoff: {cutoff:+.3f} via {rule}; Phase 1 margin={margin:+.3f}.\n"
+        f"{cutoff_label}: {cutoff:+.3f} via {rule}; calibration margin={margin:+.3f}.\n"
         f"Latency: mean={mean_latency:.2f}s/passer, amortized={amortized_latency:.2f}s/query; "
         f"Stage-1 pass rate={len(passers)}/{len(stage1_results)} ({100 * len(passers) / len(stage1_results):.1f}%).",
         flush=True,
     )
-    _print_frozen_cascade_summary(stage1_results, scored, "s2_score", cutoff, f"{stage2_model_id} [{mode}]")
+    if benchmark_version == "v2":
+        _print_v2_cascade_summary(stage1_results, scored, cutoff, stage2_mode)
+    else:
+        _print_frozen_cascade_summary(stage1_results, scored, "s2_score", cutoff, f"{stage2_model_id} [{mode_description}]")
     print(f"--m2-l2-asym runtime: {time.perf_counter() - started:.1f}s.", flush=True)
     gc.collect()
 
@@ -3332,6 +3850,8 @@ if __name__ == "__main__":
     parser.add_argument("--stage1-cache-dir", default=None, help="Optional directory containing the selected Stage-1 cache.")
     parser.add_argument("--stage1-cache-device", choices=("auto", "cpu", "cuda"), default="auto", help="Device tag of the Stage-1 cache selected by --m2-l2-asym.")
     parser.add_argument("--stage2-dual-polarity", action="store_true", help="Score positive and negative premise prompts in Stage 2.")
+    parser.add_argument("--benchmark-version", choices=("v1", "v2"), default="v1", help="Benchmark suite for Stage-1 collection and Stage-2 cascade (v1 is the locked default).")
+    parser.add_argument("--stage2-mode", choices=("dual", "single", "direct"), default="dual", help="Stage-2 ablation: dual polarity, positive polarity only, or direct false-premise check.")
     parser.add_argument("--stage2-fp32", action="store_true", help="Override the selected --dtype with float32 for Stage 2.")
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="Model device; auto selects CUDA when available.")
     parser.add_argument("--dtype", choices=("auto", "float16", "bfloat16", "float32"), default="auto", help="Model precision; auto uses float16 on pre-Ampere CUDA, bfloat16 on Ampere+ CUDA and CPU.")
@@ -3375,11 +3895,12 @@ if __name__ == "__main__":
             dtype=stage1_dtype,
             device_name=resolved_device.type,
             cache_dir=args.stage1_cache_dir,
+            benchmark_version=args.benchmark_version,
         )
     elif args.m2_l2_asym:
         run_m2_l2_asymmetric(
             stage2_model_id=args.stage2_model,
-            dual_polarity=args.stage2_dual_polarity,
+            dual_polarity=args.stage2_mode == "dual" or args.stage2_dual_polarity,
             force_offline=args.offline,
             use_bf16=not args.stage2_fp32,
             stage1_model_id=args.stage1_cache_model,
@@ -3389,6 +3910,8 @@ if __name__ == "__main__":
             stage2_device_name=resolved_device.type,
             stage2_dtype_name=("float32" if args.stage2_fp32 else _dtype_name(resolved_dtype)),
             stage2_cache_dir=args.stage2_cache_dir,
+            benchmark_version=args.benchmark_version,
+            stage2_mode=("dual" if args.stage2_dual_polarity else args.stage2_mode),
         )
     else:
         run_track_c(phase1_only=args.phase1_only)
