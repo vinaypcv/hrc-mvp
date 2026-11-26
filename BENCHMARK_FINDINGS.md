@@ -433,3 +433,33 @@ The holdout values above follow that definition: the 0.5B cascade submitted 10 c
 ### Decision and next milestone
 
 Expand both the Phase 1 calibration trap set and the holdout trap set before declaring Layer 2 validated. Three Phase 1 trap passers are too few to support a stable frozen cutoff, and 70 pairwise AUROC comparisons over 17 questions do not provide 70 independent samples. Keep the 1.5B → 0.5B result as the lower-latency operating point observed here, and the 1.5B → 1.5B result as evidence of stronger ranking on this slice. After the expanded split, revisit Layer 3 for errors that premise verification cannot resolve, including consistent but factually wrong answers such as “Atlantic Ocean” and “87 years.” Do not add numeral or synonym normalization to this locked benchmark; evaluate it on a fresh split.
+
+## Locked v1 GPU Parity (Colab T4, float16)
+
+The `v1` benchmark is permanently frozen: its Phase 1 (40) and Holdout (27) queries, `v_crit = -66.0`, `blake2b-query-v1` seed derivation policy, Stage-2 prompts, and reported evaluation splits are not revised by the `v2` suite.
+
+### Hardware, precision, and runtime
+
+- Hardware: Google Colab Tesla T4, compute capability `SM 7.5`, `15.6 GB` VRAM.
+- Execution: `device=cuda`, `dtype=torch.float16`.
+- The 1.5B → 1.5B Stage-2 runtime fell from `1,368.4s` on CPU (`bfloat16`) to `14.9s` on the T4 (`float16`), a **91.8x speedup**.
+- Resuming both 0.5B and 1.5B Stage-2 caches from Google Drive took `13.5s` combined wall time (`~6.7s` per process), with zero Stage-2 weight loading.
+
+### Drive artifact fingerprints
+
+| Artifact | Fingerprint |
+|---|---|
+| Stage-1 cache | `e4f2ec3ebf` — `hrc_mvp_stage1_Qwen--Qwen2_5-1_5B-Instruct_float16_cuda_m66p0.json` |
+| Stage-2 0.5B cache | `hrc_mvp_stage2_Qwen--Qwen2_5-0_5B-Instruct_float16_cuda_premise-audit-v1_s1-e4f2ec3ebf.json`; SHA-256 prefix `bb70ac17eb3b0a3c`; `8,813` bytes |
+| Stage-2 1.5B cache | `hrc_mvp_stage2_Qwen--Qwen2_5-1_5B-Instruct_float16_cuda_premise-audit-v1_s1-e4f2ec3ebf.json`; SHA-256 prefix `70f016e48ec152f5`; `8,727` bytes |
+
+The cache fingerprints identify the exact Stage-1 split used by both Stage-2 runs. Item-for-item Stage-1 trap passer parity held across CPU and T4: Phase 1 `P1_36`, `P1_37`, `P1_39`; Holdout `H_FP1`, `H_FP3`, `H_FP5`, `H_FP7`, `H_FP9`, `H_FP11`, `H_FP14`.
+
+### 1.5B → 1.5B cascade results
+
+| Split | Stage-1 passers | Valid kept | Traps halted | Stage-2 traps halted | Answer-graded selective accuracy | Stage-2 AUROC |
+|---|---:|---:|---:|---:|---:|---:|
+| Phase 1 (backfilled) | 23/40 | 19/34 | 5/6 | 2/3 | 16/20 (80.0%) | 0.867 (20 × 3 = 60 pairs) |
+| Holdout (locked) | 17/27 | 9/11 | 16/16 | 7/7 | 9/9 (100.0%) | 1.000 (10 × 7 = 70 pairs) |
+
+These figures record GPU parity and the answer-graded Phase 1 backfill using the existing locked v1 questions. The 60 and 70 AUROC pair counts are comparisons among 23 and 17 distinct Stage-1 passers, respectively; the pairs are not independent observations.
