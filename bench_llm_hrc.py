@@ -6,7 +6,6 @@ import math
 import gc
 import hashlib
 import json
-import inspect
 import random
 import tempfile
 from collections import Counter, defaultdict
@@ -24,6 +23,42 @@ from layer3_entity_guard import entity_anchor_guard, print_entity_guard_validati
 MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
 M2_L2_BASE_SEED = 42
 M2_L2_SEED_POLICY = "blake2b-query-v1"
+ACTIVE_DEVICE = "auto"
+ACTIVE_DTYPE = "auto"
+
+
+def _resolve_device_dtype(device_name="auto", dtype_name="auto"):
+    """Resolve CLI device/precision names to one device and one torch dtype."""
+    if device_name not in ("auto", "cpu", "cuda"):
+        raise ValueError(f"Unsupported device: {device_name}")
+    if device_name == "auto":
+        device_name = "cuda" if torch.cuda.is_available() else "cpu"
+    if device_name == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested, but torch.cuda.is_available() is false.")
+
+    if isinstance(dtype_name, torch.dtype):
+        return torch.device(device_name), dtype_name
+    if dtype_name == "auto":
+        if device_name == "cuda":
+            major, _ = torch.cuda.get_device_capability(0)
+            dtype = torch.float16 if major < 8 else torch.bfloat16
+        else:
+            dtype = torch.bfloat16
+    else:
+        dtype_map = {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }
+        try:
+            dtype = dtype_map[dtype_name]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported dtype: {dtype_name}") from exc
+    return torch.device(device_name), dtype
+
+
+def _dtype_name(dtype):
+    return str(dtype).replace("torch.", "")
 
 
 def _stable_query_seed(question: str, base_seed: int = M2_L2_BASE_SEED) -> int:
@@ -90,12 +125,7 @@ def load_hf_local_first(
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
     if dtype is not None:
-        try:
-            model_parameters = inspect.signature(AutoModelForCausalLM.from_pretrained).parameters
-        except (TypeError, ValueError):
-            model_parameters = {}
-        dtype_arg = "dtype" if "dtype" in model_parameters else "torch_dtype"
-        model_kwargs.setdefault(dtype_arg, dtype)
+        model_kwargs.setdefault("dtype", dtype)
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
         model = AutoModelForCausalLM.from_pretrained(
@@ -585,13 +615,13 @@ class Layer3ResonantMemory:
 # LAYER 1 + LAYER 2: KURAMOTO SEMANTIC-EQUILIBRIUM ENGINE ON OPEN LLM
 # ==============================================================================
 class HRCLLMEngine:
-    def __init__(self, model_id: str = MODEL_ID, force_offline: bool = False, dtype=None):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, model_id: str = MODEL_ID, force_offline: bool = False, dtype=None, device=None):
+        requested_device = ACTIVE_DEVICE if device is None else device
+        requested_dtype = (ACTIVE_DTYPE if dtype is None else dtype)
+        self.device, dtype = _resolve_device_dtype(requested_device, requested_dtype)
         local_files_only = _has_complete_local_hf_checkpoint(model_id)
         cache_note = " (complete local cache; skipping Hub checks)" if local_files_only else ""
         print(f"[1/2] Loading {model_id} on {self.device}{cache_note}...", flush=True)
-        if dtype is None:
-            dtype = torch.float16 if self.device.type == "cuda" else torch.float32
         self.tokenizer, loaded_model = load_hf_local_first(
             model_id,
             force_offline=force_offline,
@@ -606,7 +636,7 @@ class HRCLLMEngine:
 
     @torch.no_grad()
     def embed_texts(self, texts: list) -> torch.Tensor:
-        enc = self.tokenizer(texts, padding=True, truncation=True, max_length=64, return_tensors="pt").to(self.device)
+        enc = self.tokenizer(texts, padding=True, truncation=True, max_length=64, return_tensors="pt").to(self.model.device)
         # Use the decoder body directly: the LM head logits and all intermediate
         # hidden-state tensors are unnecessary for pooled semantic embeddings.
         out = self.model.model(**enc, use_cache=False)
@@ -662,7 +692,7 @@ class HRCLLMEngine:
             res_id = res_candidate_id if res_injected else None
 
         prompt_text = self._build_prompt(question, resonant_fact=res_fact)
-        enc = self.tokenizer(prompt_text, return_tensors="pt").to(self.device)
+        enc = self.tokenizer(prompt_text, return_tensors="pt").to(self.model.device)
         in_len = enc["input_ids"].shape[1]
 
         # Step B: Canonical Greedy Trajectory (extracts answer + token entropy + logit margin)
@@ -699,9 +729,13 @@ class HRCLLMEngine:
         # Step C: Batched K=3 Phase-Perturbed Trajectories -> Kuramoto Order Parameter Phi_sem
         sampling_seed = _stable_query_seed(question)
         python_rng_state = random.getstate()
-        cuda_devices = list(range(torch.cuda.device_count())) if self.device.type == "cuda" else []
+        cuda_devices = [torch.cuda.current_device()] if (
+            torch.cuda.is_available() and self.model.device.type == "cuda"
+        ) else []
         with torch.random.fork_rng(devices=cuda_devices):
             torch.manual_seed(sampling_seed)
+            if cuda_devices:
+                torch.cuda.manual_seed_all(sampling_seed)
             random.seed(sampling_seed)
             try:
                 samp_out = self.model.generate(
@@ -749,7 +783,7 @@ class HRCLLMEngine:
                 f"Question: {question}\nProposed Answer: {greedy_ans}\n"
                 "Is the proposed answer factually correct? Answer Yes or No:"
             )
-            p_true_enc = self.tokenizer(p_true_prompt, return_tensors="pt").to(self.device)
+            p_true_enc = self.tokenizer(p_true_prompt, return_tensors="pt").to(self.model.device)
             yes_ids = self.tokenizer.encode(" Yes", add_special_tokens=False)
             no_ids = self.tokenizer.encode(" No", add_special_tokens=False)
             if len(yes_ids) != 1 or len(no_ids) != 1:
@@ -1991,12 +2025,17 @@ def _m2_l2_stage1_cache_path(
     model_id: str = MODEL_ID,
     dtype_name: str = None,
     cache_dir: str | Path = None,
+    device_name: str = None,
 ):
+    resolved_device, resolved_dtype = _resolve_device_dtype(
+        ACTIVE_DEVICE if device_name is None else device_name,
+        ACTIVE_DTYPE if dtype_name is None else dtype_name,
+    )
+    dtype_name = _dtype_name(resolved_dtype) if dtype_name is None else dtype_name
     model_tag = model_id.replace("/", "--").replace(".", "_")
     threshold_tag = str(v_crit).replace("-", "m").replace(".", "p")
-    dtype_tag = f"_{dtype_name}" if dtype_name else ""
     base_dir = Path(cache_dir) if cache_dir is not None else Path(tempfile.gettempdir())
-    return base_dir / f"hrc_mvp_stage1_{model_tag}{dtype_tag}_{threshold_tag}.json"
+    return base_dir / f"hrc_mvp_stage1_{model_tag}_{dtype_name}_{resolved_device.type}_{threshold_tag}.json"
 
 
 def _m2_l2_phase1_stream():
@@ -2039,23 +2078,41 @@ def _read_m2_l2_stage1_cache(
     model_id: str = MODEL_ID,
     dtype_name: str = None,
     cache_dir: str | Path = None,
+    device_name: str = None,
 ):
     phase1_stream = _validate_m2_l2_holdout_disjoint()
     expected_queries = [question for question, _, _ in phase1_stream]
     expected_queries.extend(probe["q"] for probe in M2_L2_HOLDOUT_QUERIES)
-    cache_path = _m2_l2_stage1_cache_path(
-        v_crit, model_id=model_id, dtype_name=dtype_name, cache_dir=cache_dir
+    resolved_device, resolved_dtype = _resolve_device_dtype(
+        ACTIVE_DEVICE if device_name is None else device_name,
+        ACTIVE_DTYPE if dtype_name is None else dtype_name,
     )
-    if not cache_path.is_file():
+    requested_dtype = _dtype_name(resolved_dtype) if dtype_name is None else dtype_name
+    cache_path = _m2_l2_stage1_cache_path(
+        v_crit, model_id=model_id, dtype_name=requested_dtype,
+        cache_dir=cache_dir, device_name=resolved_device.type,
+    )
+    legacy_path = None
+    selected_path = cache_path
+    if not selected_path.is_file() and resolved_device.type == "cpu":
+        model_tag = model_id.replace("/", "--").replace(".", "_")
+        threshold_tag = str(v_crit).replace("-", "m").replace(".", "p")
+        base_dir = Path(cache_dir) if cache_dir is not None else Path(tempfile.gettempdir())
+        legacy_path = base_dir / f"hrc_mvp_stage1_{model_tag}_{requested_dtype}_{threshold_tag}.json"
+        if legacy_path.is_file():
+            selected_path = legacy_path
+    if not selected_path.is_file():
         return None
     try:
-        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        cached = json.loads(selected_path.read_text(encoding="utf-8"))
         valid_seed_policy = cached.get("seed_policy") == M2_L2_SEED_POLICY
+        is_legacy_path = selected_path == legacy_path
         if (
             cached.get("schema") == 2
             and cached.get("model_id") == model_id
             and cached.get("v_crit") == v_crit
-            and (dtype_name is None or cached.get("dtype") == dtype_name)
+            and (cached.get("dtype") in (None, requested_dtype) if is_legacy_path else cached.get("dtype") == requested_dtype)
+            and (cached.get("device") in (None, "cpu") if is_legacy_path else cached.get("device") == resolved_device.type)
             and (valid_seed_policy or allow_legacy)
         ):
             records = cached.get("records", [])
@@ -2105,18 +2162,93 @@ def _m2_l2_stage2_candidates(stage1_results: list) -> list:
     ]
 
 
+def _m2_l2_stage1_fingerprint(stage1_records: list) -> str:
+    """Hash the canonical Stage-1 record sequence used by Stage 2."""
+    canonical = json.dumps(
+        stage1_records, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"), allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _m2_l2_stage2_cache_path(
+    stage1_records: list,
+    stage2_model_id: str,
+    stage2_dtype_name: str,
+    stage2_device: str,
+    dual_polarity: bool,
+    cache_dir: str | Path = ".hrc_cache",
+) -> tuple[Path, dict]:
+    """Return the deterministic path and complete metadata identity for Stage 2."""
+    stage1_hash = _m2_l2_stage1_fingerprint(stage1_records)
+    model_slug = stage2_model_id.replace("/", "--").replace(".", "_")
+    metadata = {
+        "stage1_cache_sha256": stage1_hash,
+        "stage2_model": stage2_model_id,
+        "stage2_dtype": stage2_dtype_name,
+        "stage2_device": stage2_device,
+        "prompt_version": M2_L2_STAGE2_PROMPT_VERSION,
+        "dual_polarity": bool(dual_polarity),
+    }
+    path = Path(cache_dir) / (
+        f"hrc_mvp_stage2_{model_slug}_{stage2_dtype_name}_{stage2_device}_"
+        f"{M2_L2_STAGE2_PROMPT_VERSION}_s1-{stage1_hash[:10]}.json"
+    )
+    return path, metadata
+
+
+def _read_m2_l2_stage2_cache(cache_path: str | Path, expected_metadata: dict) -> dict:
+    """Read a matching cache as an index keyed by (split, id, query)."""
+    path = Path(cache_path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    if payload.get("schema") != 1 or any(
+        payload.get(key) != value for key, value in expected_metadata.items()
+    ):
+        return {}
+    indexed = {}
+    for row in payload.get("records", []):
+        try:
+            key = (row["split"], row["id"], row["query"])
+            if not all(name in row for name in ("is_valid", "d_pos", "d_neg", "s_bal", "latency_s")):
+                continue
+            indexed[key] = row
+        except (KeyError, TypeError):
+            continue
+    return indexed
+
+
+def _write_m2_l2_stage2_cache(cache_path: str | Path, metadata: dict, records: list):
+    """Atomically replace a Stage-2 cache after one or more scored queries."""
+    path = Path(cache_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_suffix(path.suffix + ".tmp")
+    payload = {"schema": 1, **metadata, "records": records}
+    temp_path.write_text(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    os.replace(temp_path, path)
+
+
 def collect_m2_l2_stage1(
     engine,
     v_crit: float = -66.0,
     model_id: str = MODEL_ID,
     dtype_name: str = None,
+    device_name: str = None,
+    cache_dir: str | Path = None,
 ):
     """Run Stage 1 once and cache its records for the diagnostic and asymmetric runs."""
     cache_path = _m2_l2_stage1_cache_path(
-        v_crit, model_id=model_id, dtype_name=dtype_name
+        v_crit, model_id=model_id, dtype_name=dtype_name,
+        cache_dir=cache_dir, device_name=device_name,
     )
     cached_records = _read_m2_l2_stage1_cache(
-        v_crit, model_id=model_id, dtype_name=dtype_name
+        v_crit, model_id=model_id, dtype_name=dtype_name,
+        cache_dir=cache_dir, device_name=device_name,
     )
     if cached_records is not None:
         print(f"Reusing cached Stage-1 outcomes from {cache_path}.", flush=True)
@@ -2154,12 +2286,17 @@ def collect_m2_l2_stage1(
         print(f"  Holdout {probe['id']} {probe['category']:<13} V_m={result['v_m']:6.1f} "
               f"{'PASS' if not result['halt'] else 'HALT'}: {probe['q']}", flush=True)
     try:
+        cache_device, cache_dtype = _resolve_device_dtype(
+            ACTIVE_DEVICE if device_name is None else device_name,
+            ACTIVE_DTYPE if dtype_name is None else dtype_name,
+        )
         cache_payload = {
             "schema": 2, "model_id": model_id, "v_crit": v_crit,
-            "seed_policy": M2_L2_SEED_POLICY, "records": records,
+            "seed_policy": M2_L2_SEED_POLICY,
+            "dtype": dtype_name or _dtype_name(cache_dtype),
+            "device": cache_device.type,
+            "records": records,
         }
-        if dtype_name is not None:
-            cache_payload["dtype"] = dtype_name
         cache_path.write_text(json.dumps(cache_payload, ensure_ascii=False), encoding="utf-8")
         print(f"Cached Stage-1 outcomes at {cache_path}.", flush=True)
     except OSError as exc:
@@ -2172,16 +2309,23 @@ def run_m2_l2_stage1_model_compare(
     v_crit: float = -66.0,
     force_offline: bool = True,
     dtype=torch.bfloat16,
+    device_name: str = None,
+    cache_dir: str | Path = None,
 ):
     """Run the frozen Stage-1 split with another model and a model-specific cache."""
     torch.manual_seed(M2_L2_BASE_SEED)
     torch.set_num_threads(min(4, os.cpu_count() or 4))
     dtype_name = str(dtype).replace("torch.", "")
+    resolved_device, dtype = _resolve_device_dtype(
+        ACTIVE_DEVICE if device_name is None else device_name, dtype
+    )
     cache_path = _m2_l2_stage1_cache_path(
-        v_crit, model_id=model_id, dtype_name=dtype_name
+        v_crit, model_id=model_id, dtype_name=dtype_name,
+        cache_dir=cache_dir, device_name=resolved_device.type,
     )
     records = _read_m2_l2_stage1_cache(
-        v_crit, model_id=model_id, dtype_name=dtype_name
+        v_crit, model_id=model_id, dtype_name=dtype_name,
+        cache_dir=cache_dir, device_name=resolved_device.type,
     )
     if records is None:
         if force_offline and not _has_complete_local_hf_checkpoint(model_id):
@@ -2196,9 +2340,13 @@ def run_m2_l2_stage1_model_compare(
             f"seed policy={M2_L2_SEED_POLICY}; cache={cache_path}",
             flush=True,
         )
-        engine = HRCLLMEngine(model_id, force_offline=force_offline, dtype=dtype)
+        engine = HRCLLMEngine(
+            model_id, force_offline=force_offline, dtype=dtype,
+            device=resolved_device.type,
+        )
         records = collect_m2_l2_stage1(
-            engine, v_crit=v_crit, model_id=model_id, dtype_name=dtype_name
+            engine, v_crit=v_crit, model_id=model_id, dtype_name=dtype_name,
+            device_name=resolved_device.type, cache_dir=cache_dir,
         )
         del engine
         gc.collect()
@@ -2336,7 +2484,7 @@ def run_m2_l2_component_diagnostic(
 
 
 def _stage2_yes_no_logits(model, tokenizer, prompt: str, yes_ids: list, no_ids: list):
-    inputs = tokenizer(prompt, return_tensors="pt").to(next(model.parameters()).device)
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     logits = model(**inputs).logits[0, -1].float()
     log_probs = F.log_softmax(logits, dim=-1)
     yes_tensor = torch.tensor(yes_ids, dtype=torch.long, device=logits.device)
@@ -2572,9 +2720,11 @@ def run_m2_l2_frozen_dual_polarity(v_crit: float = -66.0, force_offline: bool = 
     if engine is not None:
         tokenizer, model = engine.tokenizer, engine.model
     else:
+        frozen_device, frozen_dtype = _resolve_device_dtype(ACTIVE_DEVICE, ACTIVE_DTYPE)
         tokenizer, model = load_hf_local_first(
-            MODEL_ID, force_offline=force_offline, dtype=torch.float32
+            MODEL_ID, force_offline=force_offline, dtype=frozen_dtype
         )
+        model = model.to(frozen_device)
     model.eval()
     yes_ids, no_ids = resolve_yes_no_token_ids(tokenizer)
     scored = []
@@ -2627,8 +2777,12 @@ def run_m2_l2_asymmetric(
     stage1_model_id: str = MODEL_ID,
     stage1_dtype_name: str = None,
     stage1_cache_dir: str | Path = None,
+    stage1_device_name: str = "cpu",
+    stage2_device_name: str = None,
+    stage2_dtype_name: str = None,
+    stage2_cache_dir: str | Path = None,
 ):
-    """Cache-only, bounded-thread Stage-2 run; never loads the Stage-1 model."""
+    """Cache-only, resumable Stage-2 run; never loads the Stage-1 model."""
     torch.manual_seed(42)
     torch.set_num_threads(min(4, os.cpu_count() or 4))
     started = time.perf_counter()
@@ -2637,12 +2791,14 @@ def run_m2_l2_asymmetric(
         model_id=stage1_model_id,
         dtype_name=stage1_dtype_name,
         cache_dir=stage1_cache_dir,
+        device_name=stage1_device_name,
     )
     stage1_results = _read_m2_l2_stage1_cache(
         v_crit,
         model_id=stage1_model_id,
         dtype_name=stage1_dtype_name,
         cache_dir=stage1_cache_dir,
+        device_name=stage1_device_name,
     )
     if stage1_results is None:
         raise FileNotFoundError(
@@ -2651,50 +2807,102 @@ def run_m2_l2_asymmetric(
         )
     _print_m2_l2_stage1_trap_audit(stage1_results, label=f"{stage1_model_id} Stage 1")
     passers = _m2_l2_stage2_candidates(stage1_results)
-    dtype = torch.bfloat16 if use_bf16 else torch.float32
+    requested_dtype = torch.float32 if not use_bf16 else (
+        ACTIVE_DTYPE if stage2_dtype_name is None else stage2_dtype_name
+    )
+    stage2_device, dtype = _resolve_device_dtype(
+        ACTIVE_DEVICE if stage2_device_name is None else stage2_device_name,
+        requested_dtype,
+    )
+    stage2_device_name = stage2_device.type
+    stage2_dtype_name = _dtype_name(dtype)
+    cache_dir = stage2_cache_dir or stage1_cache_dir or ".hrc_cache"
+    stage2_cache_path, cache_metadata = _m2_l2_stage2_cache_path(
+        stage1_results, stage2_model_id, stage2_dtype_name,
+        stage2_device_name, dual_polarity, cache_dir,
+    )
+    cached_by_key = _read_m2_l2_stage2_cache(stage2_cache_path, cache_metadata)
+    for row in passers:
+        key = (row["split"], row["id"], row["query"])
+        cached_row = cached_by_key.get(key)
+        if cached_row is not None and bool(cached_row.get("is_valid")) != bool(row["is_valid"]):
+            cached_by_key.pop(key, None)
+    uncached = [
+        row for row in passers
+        if (row["split"], row["id"], row["query"]) not in cached_by_key
+    ]
     mode = "dual-polarity (2 forwards/query)" if dual_polarity else "single-pass (1 forward/query)"
     print(
         f"\n=== M2 LAYER 2 ASYMMETRIC STAGE-2 ({stage2_model_id}) ===\n"
         f"Stage-2 premise prompt: {M2_L2_STAGE2_PROMPT_VERSION}\n"
-        f"Stage-1 cache model: {stage1_model_id}; dtype={stage1_dtype_name or 'legacy/default'}\n"
-        f"Cache: {cache_path}\n"
-        f"Config: dtype={dtype}, threads={min(4, os.cpu_count() or 4)}, mode={mode}, "
-        f"passers={len(passers)}/{len(stage1_results)}. Loading Stage-2 model...",
+        f"Stage-1 cache model: {stage1_model_id}; dtype={stage1_dtype_name or 'resolved'}; "
+        f"device={stage1_device_name}\n"
+        f"Stage-1 cache: {cache_path}\nStage-2 cache: {stage2_cache_path}\n"
+        f"Config: device={stage2_device_name}, dtype={dtype}, "
+        f"threads={min(4, os.cpu_count() or 4)}, mode={mode}, "
+        f"passers={len(passers)}/{len(stage1_results)}, cached={len(passers) - len(uncached)}, "
+        f"pending={len(uncached)}.",
         flush=True,
     )
-    load_start = time.perf_counter()
-    tokenizer2, model2 = load_hf_local_first(
-        stage2_model_id,
-        force_offline=force_offline,
-        dtype=dtype,
-        low_cpu_mem_usage=True,
-    )
-    model2.eval()
-    print(f"Loaded Stage-2 model in {time.perf_counter() - load_start:.1f}s.", flush=True)
-    yes_ids, no_ids = resolve_yes_no_token_ids(tokenizer2)
-    scored = []
-    for index, row in enumerate(passers, start=1):
-        started_score = time.perf_counter()
-        positive = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=False)
-        d_pos, _, raw_pos = _stage2_yes_no_logits(model2, tokenizer2, positive, yes_ids, no_ids)
-        if dual_polarity:
-            negative = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=True)
-            d_neg, _, raw_neg = _stage2_yes_no_logits(model2, tokenizer2, negative, yes_ids, no_ids)
-            score = 0.5 * (d_pos - d_neg)
-            raw_mass = 0.5 * (raw_pos + raw_neg)
-        else:
-            score = d_pos
-            raw_mass = raw_pos
-        scored.append({
-            **row, "s2_score": score, "s2_time": time.perf_counter() - started_score,
-            "raw_mass": raw_mass,
-        })
-        tag = "VALID" if row["is_valid"] else "TRAP "
-        print(
-            f"  [{index:02d}/{len(passers)}] {row['split']:<7} {row['id']:<7} {tag} | "
-            f"score={score:+.3f} mass={raw_mass:.3f} latency={scored[-1]['s2_time']:.2f}s",
-            flush=True,
+    model2 = tokenizer2 = None
+    if uncached:
+        load_start = time.perf_counter()
+        tokenizer2, loaded_model = load_hf_local_first(
+            stage2_model_id,
+            force_offline=force_offline,
+            dtype=dtype,
+            low_cpu_mem_usage=True,
         )
+        model2 = loaded_model.to(stage2_device)
+        model2.eval()
+        print(f"Loaded Stage-2 model in {time.perf_counter() - load_start:.1f}s.", flush=True)
+        yes_ids, no_ids = resolve_yes_no_token_ids(tokenizer2)
+        for index, row in enumerate(uncached, start=1):
+            started_score = time.perf_counter()
+            positive = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=False)
+            d_pos, _, _ = _stage2_yes_no_logits(model2, tokenizer2, positive, yes_ids, no_ids)
+            if dual_polarity:
+                negative = _format_instruct_premise_prompt(tokenizer2, row["query"], negate=True)
+                d_neg, _, _ = _stage2_yes_no_logits(model2, tokenizer2, negative, yes_ids, no_ids)
+                s_bal = 0.5 * (d_pos - d_neg)
+            else:
+                d_neg = None
+                s_bal = d_pos
+            cache_row = {
+                "id": row["id"], "split": row["split"], "query": row["query"],
+                "is_valid": bool(row["is_valid"]), "d_pos": float(d_pos),
+                "d_neg": None if d_neg is None else float(d_neg),
+                "s_bal": float(s_bal),
+                "latency_s": float(time.perf_counter() - started_score),
+            }
+            cached_by_key[(row["split"], row["id"], row["query"])] = cache_row
+            ordered_cache_records = [
+                cached_by_key[(candidate["split"], candidate["id"], candidate["query"])]
+                for candidate in passers
+                if (candidate["split"], candidate["id"], candidate["query"]) in cached_by_key
+            ]
+            _write_m2_l2_stage2_cache(stage2_cache_path, cache_metadata, ordered_cache_records)
+            tag = "VALID" if row["is_valid"] else "TRAP "
+            print(
+                f"  [{index:02d}/{len(uncached)}] {row['split']:<7} {row['id']:<7} {tag} | "
+                f"d_pos={d_pos:+.3f} d_neg={float('nan') if d_neg is None else d_neg:+.3f} "
+                f"s_bal={s_bal:+.3f} ({cache_row['latency_s']:.2f}s); cache flushed",
+                flush=True,
+            )
+        del model2, tokenizer2
+        gc.collect()
+    else:
+        print("All Stage-2 candidates are cached; skipping model weight loading.", flush=True)
+
+    scored = []
+    for row in passers:
+        cache_row = cached_by_key[(row["split"], row["id"], row["query"])]
+        scored.append({
+            **row,
+            "d_pos": cache_row["d_pos"], "d_neg": cache_row["d_neg"],
+            "s_bal": cache_row["s_bal"], "s2_score": cache_row["s_bal"],
+            "s2_time": cache_row["latency_s"],
+        })
 
     phase1_passers = [row for row in scored if row["split"] == "P1"]
     cutoff, rule, margin = _fit_frozen_phase1_cutoff(phase1_passers, "s2_score")
@@ -2707,9 +2915,7 @@ def run_m2_l2_asymmetric(
         flush=True,
     )
     _print_frozen_cascade_summary(stage1_results, scored, "s2_score", cutoff, f"{stage2_model_id} [{mode}]")
-    print(f"Mean restricted Yes/No probability mass: {sum(row['raw_mass'] for row in scored) / max(1, len(scored)):.3f}.", flush=True)
     print(f"--m2-l2-asym runtime: {time.perf_counter() - started:.1f}s.", flush=True)
-    del model2, tokenizer2
     gc.collect()
 
 
@@ -3114,18 +3320,22 @@ if __name__ == "__main__":
     run_mode.add_argument("--m2-l2-asym", action="store_true", help="Run a decoupled Stage-2 premise verifier on Stage-1 passers.")
     parser.add_argument("--offline", action="store_true", help="Force local-only Hugging Face model loading.")
     parser.add_argument("--stage1-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for --m2-l2-stage1-compare.")
-    parser.add_argument("--stage1-fp32", action="store_true", help="Use float32 instead of the default bfloat16 for --m2-l2-stage1-compare.")
+    parser.add_argument("--stage1-fp32", action="store_true", help="Override the selected --dtype with float32 for Stage 1.")
     parser.add_argument("--stage2-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for --m2-l2-asym.")
     parser.add_argument("--stage1-cache-model", default=MODEL_ID, help="Stage-1 model ID whose cached split --m2-l2-asym should read.")
     parser.add_argument(
         "--stage1-cache-dtype",
-        choices=("default", "bfloat16", "float32"),
+        choices=("default", "float16", "bfloat16", "float32"),
         default="default",
         help="Optional dtype tag for the Stage-1 cache selected by --m2-l2-asym.",
     )
     parser.add_argument("--stage1-cache-dir", default=None, help="Optional directory containing the selected Stage-1 cache.")
+    parser.add_argument("--stage1-cache-device", choices=("auto", "cpu", "cuda"), default="auto", help="Device tag of the Stage-1 cache selected by --m2-l2-asym.")
     parser.add_argument("--stage2-dual-polarity", action="store_true", help="Score positive and negative premise prompts in Stage 2.")
-    parser.add_argument("--stage2-fp32", action="store_true", help="Use float32 instead of the default bfloat16 for --m2-l2-asym.")
+    parser.add_argument("--stage2-fp32", action="store_true", help="Override the selected --dtype with float32 for Stage 2.")
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto", help="Model device; auto selects CUDA when available.")
+    parser.add_argument("--dtype", choices=("auto", "float16", "bfloat16", "float32"), default="auto", help="Model precision; auto uses float16 on pre-Ampere CUDA, bfloat16 on Ampere+ CUDA and CPU.")
+    parser.add_argument("--stage2-cache-dir", default=None, help="Stage-2 cache directory; defaults to --stage1-cache-dir or .hrc_cache.")
     parser.add_argument(
         "--part",
         choices=("4a", "4b", "all"),
@@ -3133,6 +3343,9 @@ if __name__ == "__main__":
         help="Select a Step 4 baseline section when using --baselines (default: all).",
     )
     args = parser.parse_args()
+    resolved_device, resolved_dtype = _resolve_device_dtype(args.device, args.dtype)
+    ACTIVE_DEVICE = resolved_device.type
+    ACTIVE_DTYPE = _dtype_name(resolved_dtype)
     if args.offline:
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -3155,10 +3368,13 @@ if __name__ == "__main__":
     elif args.m2_l2_components:
         run_m2_l2_component_diagnostic(force_offline=args.offline)
     elif args.m2_l2_stage1_compare:
+        stage1_dtype = torch.float32 if args.stage1_fp32 else resolved_dtype
         run_m2_l2_stage1_model_compare(
             model_id=args.stage1_model,
             force_offline=args.offline,
-            dtype=torch.float32 if args.stage1_fp32 else torch.bfloat16,
+            dtype=stage1_dtype,
+            device_name=resolved_device.type,
+            cache_dir=args.stage1_cache_dir,
         )
     elif args.m2_l2_asym:
         run_m2_l2_asymmetric(
@@ -3169,6 +3385,10 @@ if __name__ == "__main__":
             stage1_model_id=args.stage1_cache_model,
             stage1_dtype_name=None if args.stage1_cache_dtype == "default" else args.stage1_cache_dtype,
             stage1_cache_dir=args.stage1_cache_dir,
+            stage1_device_name=(resolved_device.type if args.stage1_cache_device == "auto" else args.stage1_cache_device),
+            stage2_device_name=resolved_device.type,
+            stage2_dtype_name=("float32" if args.stage2_fp32 else _dtype_name(resolved_dtype)),
+            stage2_cache_dir=args.stage2_cache_dir,
         )
     else:
         run_track_c(phase1_only=args.phase1_only)
