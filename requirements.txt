@@ -1,0 +1,5 @@
+﻿# Install in Colab with its preinstalled CUDA-enabled PyTorch.
+accelerate
+datasets
+sentence-transformers
+transformers
