@@ -19,6 +19,10 @@ from scripts import bench_external as bench
 class StubPipeline:
     def __init__(self):
         self.config = SimpleNamespace(stage2_mode="dual", stage2_cutoff=0.0)
+        self.stage1_engine = SimpleNamespace(tokenizer=SimpleNamespace(
+            encode=lambda text, add_special_tokens=False: text.split(),
+            decode=lambda tokens, skip_special_tokens=True: " ".join(tokens),
+        ))
         self.query_calls = []
         self.scores = {}
 
@@ -120,9 +124,37 @@ class ExternalBenchmarkTests(unittest.TestCase):
         bench.assert_disjoint_questions(*first)
         with self.assertRaisesRegex(ValueError, "both classes"):
             bench.split_abstentionbench([row for row in rows if row["label"]], 4, 4, 1)
-        conflicting = rows + [{**rows[0], "label": 1, "is_false_premise": True}]
-        with self.assertRaisesRegex(ValueError, "conflicting labels"):
-            bench.split_abstentionbench(conflicting, 4, 4, 1)
+
+    def test_abstentionbench_conflicts_are_excluded_and_duplicates_deduplicated(self):
+        rows = [{"id": str(i), "question": f"Question {i}", "label": i % 2,
+                 "is_false_premise": bool(i % 2)} for i in range(12)]
+        rows += [
+            {**rows[0], "id": "same-label", "question": "QUESTION 0?"},
+            {**rows[0], "id": "conflict", "label": 1, "is_false_premise": True},
+            {**rows[0], "id": "after-conflict"},
+            {**rows[1], "id": "duplicate", "question": "question 1?"},
+        ]
+        cal, evaluation = bench.split_abstentionbench(rows, 4, None, 7)
+        chosen = cal + evaluation
+        self.assertEqual(len(chosen), 11)
+        self.assertFalse(any(bench.normalize_question(r["question"]) == "question 0" for r in chosen))
+        self.assertEqual(sum(bench.normalize_question(r["question"]) == "question 1" for r in chosen), 1)
+
+    def test_input_truncation_head_tail_and_cuda_cleanup(self):
+        pipeline = StubPipeline()
+        row = {"id": "1", "question": "one two three four five six seven eight nine ten", "label": 1}
+        pipeline.scores["one two three four five six nine ten"] = 1.0
+        pipeline.scores[row["question"]] = 1.0
+        with patch("torch.cuda.is_available", return_value=True), \
+             patch("torch.cuda.empty_cache") as empty_cache, patch.object(bench.gc, "collect") as collect:
+            record = bench._score_example(pipeline, row, "eval", "fingerprint", 8)
+            self.assertEqual(pipeline.query_calls[-1], "one two three four five six nine ten")
+            self.assertEqual((record["input_tokens"], record["truncated"]), (10, True))
+            collect.assert_called_once()
+            empty_cache.assert_called_once()
+        record = bench._score_example(pipeline, row, "eval", "fingerprint", 0)
+        self.assertEqual(pipeline.query_calls[-1], row["question"])
+        self.assertFalse(record["truncated"])
 
     def test_abstentionbench_end_to_end_metrics_resume_and_resummarize(self):
         # Import before patch.dict(sys.modules), which restores the module cache on exit.
@@ -152,6 +184,7 @@ class ExternalBenchmarkTests(unittest.TestCase):
             saved = json.loads((Path(temp) / "summary.json").read_text(encoding="utf-8"))
             self.assertEqual(saved["hf_dataset"], "example/labeled")
             self.assertIsNone(saved["scenario_filter"])
+            self.assertEqual(saved["max_input_tokens"], 1536)
             self.assertEqual(summary["calibration"]["method"], "order_k")
             self.assertTrue(math.isfinite(summary["calibration"]["cutoff"]))
             point = summary["operating_points"]["v2_cal"]
@@ -163,6 +196,7 @@ class ExternalBenchmarkTests(unittest.TestCase):
                 self.assertTrue(math.isfinite(diagnostics[name]["f1"]))
             out = Path(temp)
             markdown = (out / "summary.md").read_text(encoding="utf-8")
+            self.assertIn("max input tokens: 1536", markdown)
             v2_line = next(line for line in markdown.splitlines() if line.startswith("| v2_cal |"))
             stealth_line = next(line for line in markdown.splitlines() if line.startswith("| stage2_v2_cal_only |"))
             self.assertNotIn("n/a", v2_line)
@@ -236,6 +270,26 @@ class ExternalBenchmarkTests(unittest.TestCase):
         self.assertEqual(calibration["method_alias"], "ordk")
         self.assertEqual(calibration["n_cal_neg"], 60)
         self.assertEqual(calibration["order_index"], 3)
+
+    def test_calibration_and_coupled_metrics_count_self_refusals(self):
+        rows = [{"label": 0, "is_false_premise": False, "s_dual": float(i),
+                 "stage1_self_refusal": i == 9, "latency_ms": 1.0} for i in range(10)]
+        cutoff, calibration = bench._fit_order_k_cutoff(rows, 0.2)
+        self.assertEqual(cutoff, 1.0)
+        self.assertEqual(calibration["n_cal_stage1_halt"], 1)
+        self.assertTrue(calibration["target_feasible"])
+        self.assertEqual(bench._classification_metrics(rows, cutoff)["fp"], 2)
+        positive = {"is_false_premise": True, "s_dual": 100.0, "stage1_self_refusal": True}
+        self.assertEqual(bench._classification_metrics([positive], cutoff)["tp"], 1)
+        self.assertEqual(bench._classification_metrics([positive], 0.0)["tp"], 1)
+        cutoff, calibration = bench._fit_order_k_cutoff(rows, 0.0)
+        self.assertEqual(cutoff, 0.0)
+        self.assertFalse(calibration["target_feasible"])
+        self.assertEqual(bench._classification_metrics(rows, cutoff)["fp"], 1)
+        all_halt = [{**row, "stage1_self_refusal": True} for row in rows]
+        cutoff, calibration = bench._fit_order_k_cutoff(all_halt, 0.2)
+        self.assertTrue(math.isfinite(cutoff))
+        self.assertFalse(calibration["target_feasible"])
 
     def test_decoupled_stage2_and_combined_metrics_are_distinct(self):
         rows = [

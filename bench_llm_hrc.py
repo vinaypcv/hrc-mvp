@@ -967,6 +967,10 @@ class HRCLLMEngine:
         mean_ent_norm = min(1.0, (sum(hrc_entropies) / max(1, len(hrc_entropies))) / 2.2)
         mean_margin = sum(margins) / max(1, len(margins)) if margins else 0.0
         margin_stress = 1.0 - mean_margin
+        greedy_forward_steps = len(greedy_out.scores)
+        # Release views and the loop's final tensor references as well as the output.
+        del gen_ids, greedy_out
+        logits = probs = top2 = None
 
         # Step C: Batched K=3 Phase-Perturbed Trajectories -> Kuramoto Order Parameter Phi_sem
         sampling_seed = _stable_query_seed(question)
@@ -995,6 +999,8 @@ class HRCLLMEngine:
         for k in range(3):
             s_txt = self.tokenizer.decode(samp_out[k, in_len:], skip_special_tokens=True).strip().split("\n")[0]
             trajectories.append(s_txt)
+        sample_forward_steps = int(samp_out.shape[1] - in_len)
+        del samp_out, enc
         sem_entropy = discrete_semantic_entropy(trajectories)
 
         # 1. Hyperspherical Kuramoto Order Parameter on answer embeddings
@@ -1066,8 +1072,8 @@ class HRCLLMEngine:
             "res_entity_match": res_entity_match,
             "p_true": p_true,
             "p_true_seconds": p_true_seconds,
-            "greedy_forward_steps": len(greedy_out.scores),
-            "sample_forward_steps": int(samp_out.shape[1] - in_len),
+            "greedy_forward_steps": greedy_forward_steps,
+            "sample_forward_steps": sample_forward_steps,
         }
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import hashlib
 import json
 import math
@@ -82,6 +83,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--dtype", choices=("auto", "float16", "bfloat16", "float32"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument("--max-input-tokens", type=int, default=1536,
+                        help="Question token limit using head+tail truncation; 0 disables truncation")
     parser.add_argument("--max-false-halt-rate", type=float, default=0.05,
                         help="Maximum calibration true-premise halt rate for v2_cal")
     parser.add_argument("--load-in-4bit", action="store_true", help="Load the model in 4-bit (requires CUDA and bitsandbytes)")
@@ -338,14 +341,19 @@ def _sample_scenarios(rows: Sequence[dict], count: int, rng: random.Random) -> l
 
 def split_abstentionbench(rows: Sequence[dict], cal_size: int, limit: Optional[int],
                           seed: int) -> tuple[list[dict], list[dict]]:
-    """Deduplicate questions, then split by class and scenario without overlap."""
+    """Exclude conflicting questions and split deduplicated rows without overlap."""
     unique: dict[str, dict] = {}
+    conflicting: set[str] = set()
     for row in rows:
         key = normalize_question(row["question"])
         if not key:
             raise ValueError("AbstentionBench contains a question with no searchable text")
+        if key in conflicting:
+            continue
         if key in unique and unique[key]["label"] != row["label"]:
-            raise ValueError("Duplicate AbstentionBench questions have conflicting labels")
+            del unique[key]
+            conflicting.add(key)
+            continue
         unique.setdefault(key, row)
     positives = [row for row in unique.values() if row["label"] == 1]
     negatives = [row for row in unique.values() if row["label"] == 0]
@@ -395,21 +403,25 @@ def _average_precision(positive_scores: Sequence[float], negative_scores: Sequen
 
 
 def _fit_order_k_cutoff(calibration_rows: Sequence[dict], max_fpr: float) -> tuple[Optional[float], dict]:
-    """Fit the registered lower-tail order statistic on label-0 calibration rows."""
+    """Fit a lower-tail cutoff after accounting for Stage-1 negative halts."""
     if not 0.0 <= max_fpr <= 1.0:
         raise ValueError("max_fpr must be between 0 and 1")
-    negs = sorted(
-        float(row["s_dual"])
-        for row in calibration_rows
-        if (int(row["label"]) == 0 if row.get("label") is not None else row.get("is_false_premise") is False)
-    )
+    negs = [row for row in calibration_rows
+            if (int(row["label"]) == 0 if row.get("label") is not None else row.get("is_false_premise") is False)]
     if not negs:
         return None, {"method": "order_k", "method_alias": "ordk", "n_cal_neg": 0, "max_fpr": max_fpr, "order_index": None}
-    idx = min(max(int(math.floor(max_fpr * len(negs))), 0), len(negs) - 1)
-    return float(negs[idx]), {
+    stage1_halts = sum(_stage1_halt(row) for row in negs)
+    remaining = sorted(float(row["s_dual"]) for row in negs if not _stage1_halt(row))
+    budget = int(math.floor(max_fpr * len(negs)))
+    # If all negatives already halt at Stage 1, any finite cutoff is equivalent.
+    scores = remaining or sorted(float(row["s_dual"]) for row in negs)
+    idx = min(max(budget - stage1_halts, 0), len(scores) - 1)
+    return scores[idx], {
         "method": "order_k",
         "method_alias": "ordk",
         "n_cal_neg": len(negs),
+        "n_cal_stage1_halt": stage1_halts,
+        "target_feasible": stage1_halts <= budget,
         "max_fpr": float(max_fpr),
         "order_index": idx,
     }
@@ -449,17 +461,22 @@ def _binary_classification_metrics(rows: Sequence[dict], predicts_false) -> dict
     }
 
 
+def _stage1_halt(row: dict) -> bool:
+    return bool(row.get("stage1_halted", False)) or bool(row.get("stage1_self_refusal", False))
+
+
 def _classification_metrics(rows: Sequence[dict], cutoff: float) -> dict:
     return _binary_classification_metrics(
         rows,
-        lambda row: bool(row.get("stage1_halted", False)) or float(row["s_dual"]) < cutoff,
+        lambda row: _stage1_halt(row) or float(row["s_dual"]) < cutoff,
     )
 
 
 def _fingerprint(args: argparse.Namespace, cal_rows: Sequence[dict], eval_rows: Sequence[dict]) -> str:
     payload = {
         "dataset": args.dataset, "model": args.model, "device": args.device, "dtype": args.dtype,
-        "max_new_tokens": args.max_new_tokens, "cal_size": args.cal_size, "seed": args.seed,
+        "max_new_tokens": args.max_new_tokens, "max_input_tokens": args.max_input_tokens,
+        "cal_size": args.cal_size, "seed": args.seed,
         "limit": args.limit,
         "cal_ids": [row["id"] for row in cal_rows], "eval_ids": [row["id"] for row in eval_rows],
         "cal_questions": [normalize_question(row["question"]) for row in cal_rows],
@@ -536,16 +553,28 @@ def _load_pipeline(args: argparse.Namespace):
         raise
 
 
-def _score_example(pipeline: Any, row: dict, split: str, fingerprint: str) -> dict:
+def _score_example(pipeline: Any, row: dict, split: str, fingerprint: str,
+                   max_input_tokens: int = 1536) -> dict:
     started = time.perf_counter()
-    result = pipeline.query(row["question"], use_memory=False, run_stage2=False)
+    tokenizer = pipeline.stage1_engine.tokenizer
+    input_ids = tokenizer.encode(row["question"], add_special_tokens=False)
+    input_tokens = len(input_ids)
+    truncated = max_input_tokens > 0 and input_tokens > max_input_tokens
+    question = row["question"]
+    if truncated:
+        tail_count = max_input_tokens // 4
+        head_count = max_input_tokens - tail_count
+        kept_ids = input_ids[:head_count] + (input_ids[-tail_count:] if tail_count else [])
+        question = tokenizer.decode(kept_ids, skip_special_tokens=True)
+    result = pipeline.query(question, use_memory=False, run_stage2=False)
     # Stage-2 scoring is delegated to the installed pipeline's implementation.
-    score, details = pipeline._score_stage2(row["question"], result.answer)
+    score, details = pipeline._score_stage2(question, result.answer)
     stage1_halted = result.decision == "HALT_STAGE1"
     threshold = float(pipeline.config.stage2_cutoff)
     record = {
         "example_key": _example_key(row, split),
         "id": str(row["id"]), "split": split, "question": row["question"],
+        "input_tokens": input_tokens, "truncated": truncated,
         "source_split": row.get("split"),
         "is_false_premise": row.get("is_false_premise"), "label": row.get("label"),
         "s_dual": float(score), "stage1_answer": result.answer,
@@ -561,6 +590,10 @@ def _score_example(pipeline: Any, row: dict, split: str, fingerprint: str) -> di
     for key in ("scenario", "dataset_name"):
         if key in row:
             record[key] = row[key]
+    import torch
+    if torch.cuda.is_available():
+        gc.collect()
+        torch.cuda.empty_cache()
     return record
 
 
@@ -579,7 +612,8 @@ def _score_rows(pipeline: Any, rows: Sequence[dict], split: str, checkpoint_path
         if key in checkpoint:
             completed.append(checkpoint[key])
             continue
-        scored = _score_example(pipeline, row, split, fingerprint)
+        scored = _score_example(pipeline, row, split, fingerprint,
+                                (settings or {}).get("max_input_tokens", 1536))
         _append_checkpoint(
             checkpoint_path, scored,
             write_header=not checkpoint and not checkpoint_path.exists(),
@@ -678,6 +712,7 @@ def _summary_payload(args: argparse.Namespace, cal_rows: Sequence[dict], eval_ro
         "model": args.model,
         "device": args.device,
         "dtype": args.dtype,
+        "max_input_tokens": args.max_input_tokens,
         "seed": args.seed,
         "calibration_n": len(cal_rows),
         "evaluation_n": len(eval_rows),
@@ -748,7 +783,8 @@ def _write_summaries(out_dir: Path, summary: dict) -> None:
     content = (
         f"# External benchmark: {summary['dataset']}\n\n"
         f"Model: `{summary['model']}`; evaluation examples: {summary['evaluation_n']}; "
-        f"calibration examples: {summary['calibration_n']}.\n\n"
+        f"calibration examples: {summary['calibration_n']}; "
+        f"max input tokens: {summary['max_input_tokens'] if summary['max_input_tokens'] is not None else 'unknown'}.\n\n"
         + "\n".join(table)
         + "\n\n"
         + "\n".join(decoupled_table)
@@ -762,7 +798,7 @@ def _write_summaries(out_dir: Path, summary: dict) -> None:
 
 
 def _print_operating_points(summary: dict) -> None:
-    print("Legacy coupled operating points (Stage-1 V_m OR Stage-2):", flush=True)
+    print("Coupled operating points (Stage-1 V_m OR self-refusal OR Stage-2):", flush=True)
     for name, metrics in summary.get("operating_points", {}).items():
         if metrics is None:
             print(f"  {name}: unavailable", flush=True)
@@ -832,6 +868,7 @@ def _resummarize(args: argparse.Namespace) -> dict:
     checkpoint_path = candidates[-1]
     metadata, records = _read_checkpoint_file(checkpoint_path)
     settings = metadata.get("settings", {})
+    args.max_input_tokens = settings.get("max_input_tokens")
     for key in ("model", "device", "dtype", "seed", "max_new_tokens", "cal_size", "limit", "max_false_halt_rate",
                 "hf_dataset", "abstentionbench_scenario"):
         if key in settings:
@@ -884,6 +921,8 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
         return _resummarize(args)
     if args.max_new_tokens < 1:
         raise ValueError("max-new-tokens must be positive")
+    if args.max_input_tokens < 0:
+        raise ValueError("max-input-tokens must be non-negative")
     if not 0.0 <= args.max_false_halt_rate <= 1.0:
         raise ValueError("max-false-halt-rate must be between 0 and 1")
     if args.cal_size < 2 and args.dataset in {"falseqa", "abstentionbench"}:
@@ -926,7 +965,8 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
     checkpoint = _read_checkpoint(checkpoint_path, resume=args.resume, fingerprint=fingerprint)
     run_settings = {
         "dataset": args.dataset, "model": args.model, "device": args.device, "dtype": args.dtype,
-        "seed": args.seed, "max_new_tokens": args.max_new_tokens, "cal_size": args.cal_size,
+        "seed": args.seed, "max_new_tokens": args.max_new_tokens, "max_input_tokens": args.max_input_tokens,
+        "cal_size": args.cal_size,
         "limit": args.limit, "max_false_halt_rate": args.max_false_halt_rate,
     }
     if args.dataset == "abstentionbench":
