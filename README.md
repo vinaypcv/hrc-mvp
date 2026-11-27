@@ -72,7 +72,7 @@ hrc-mvp/
 │   ├── __main__.py
 │   ├── cli.py
 │   └── pipeline.py
-├── scripts/bench_external.py    # FalseQA and TruthfulQA benchmark runner
+├── scripts/bench_external.py    # FalseQA, AbstentionBench, and TruthfulQA runner
 ├── results/falseqa_n200/        # Per-model summaries, logs, and checkpoints
 │   ├── falseqa_qwen25_3b/
 │   ├── falseqa_phi35_mini/
@@ -110,6 +110,19 @@ python scripts/bench_external.py --dataset falseqa --model Qwen/Qwen2.5-3B-Instr
 ```
 
 Use `--resume` to continue a matching checkpoint, or `--falseqa-dir PATH` to supply local `valid.csv` (or `train.csv`) and `test.csv`. See `python scripts/bench_external.py --help` and the [Colab quickstart](COLAB_QUICKSTART.md) for more options.
+
+### AbstentionBench
+
+Install the extra for the official dataset's loading script, then run a labeled benchmark:
+
+```bash
+python -m pip install -e ".[bench,abstentionbench]"
+python scripts/bench_external.py --dataset abstentionbench --cal-size 60 --limit 200 --seed 42 --out-dir results/my_abstentionbench_run
+```
+
+The official `facebook/AbstentionBench` loader uses remote dataset code and requires `datasets==3.6.0`. Use `--hf-dataset` to select another Hugging Face dataset or a local JSON, JSONL, or Parquet file with `question` (or `prompt`/`query`) and binary `should_abstain` fields. `--abstentionbench-scenario false_premises`, `unanswerable`, or `underspecified` filters by scenario; the latter two also match the official categories `answer_unknown` and `underspecified_context`/`underspecified_intent`, respectively. Official source and metadata mappings infer available scenarios; rows with no recognized scenario remain in the full benchmark but are excluded by scenario filters.
+
+The runner deduplicates normalized questions, rejects conflicting labels, and samples calibration and evaluation deterministically by label and scenario. Both splits require both classes, so a single-class scenario or insufficient data raises an error. `v2_cal` is fitted on calibration examples labeled `should_abstain=0`. Stealth AUROC is undefined when non-refused evaluation items contain only one class and is reported as `n/a` in that case.
 
 Inspect the committed summaries without loading a model:
 

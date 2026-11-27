@@ -20,6 +20,15 @@ bench = [
     "scikit-learn>=1.2",
     "matplotlib>=3.7",
 ]
+abstentionbench = [
+    "datasets==3.6.0",
+    "gdown",
+    "pandas",
+    "pydantic",
+    "jsonlines",
+    "requests",
+    "wget",
+]
 
 [project.scripts]
 hrc = "hrc.cli:main"

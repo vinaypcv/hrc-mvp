@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import math
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -48,6 +50,133 @@ class ExternalBenchmarkTests(unittest.TestCase):
             writer = csv.DictWriter(handle, fieldnames=("id", "question", "label"))
             writer.writeheader()
             writer.writerows(rows)
+
+    def test_abstentionbench_normalizes_hf_rows_and_metadata(self):
+        rows = [
+            {"question": "First?", "should_abstain": True, "id": "original-1", "scenario": "false_premises", "dataset_name": "one"},
+            {"prompt": "Second?", "should_abstain": False, "id": 0, "scenario": "false_premises", "dataset_name": "one"},
+            {"query": "Third?", "should_abstain": 1, "metadata_json": '{"scenario":"unanswerable","dataset_name":"two","id":"third"}'},
+            {"question": "Fourth?", "should_abstain": 0},
+        ]
+        loader = Mock(return_value={"test": rows})
+        with patch.dict(sys.modules, {"datasets": SimpleNamespace(load_dataset=loader)}):
+            result = bench.load_abstentionbench("example/labeled")
+            filtered = bench.load_abstentionbench("example/labeled", "false_premises")
+        self.assertEqual([row["label"] for row in result], [1, 0, 1, 0])
+        self.assertEqual([row["is_false_premise"] for row in result], [True, False, True, False])
+        self.assertEqual([row["question"] for row in result], ["First?", "Second?", "Third?", "Fourth?"])
+        self.assertEqual((result[0]["id"], result[0]["scenario"], result[0]["dataset_name"]),
+                         ("original-1", "false_premises", "one"))
+        self.assertEqual((result[1]["id"], result[2]["id"], result[2]["dataset_name"]), ("0", "third", "two"))
+        self.assertEqual(len(filtered), 2)
+        with patch.dict(sys.modules, {"datasets": SimpleNamespace(load_dataset=Mock(return_value=[{"question": "x", "should_abstain": "False"}]))}):
+            with self.assertRaisesRegex(ValueError, "invalid should_abstain"):
+                bench.load_abstentionbench("example/labeled")
+
+    def test_official_abstentionbench_preserves_source_and_scenario(self):
+        sources = {
+            "falseqa": [{"question": "FalseQA?", "should_abstain": True, "metadata_json": "{}"}],
+            "coconot": [{"question": "CoCoNot?", "should_abstain": False,
+                         "metadata_json": '{"CoCoNot_AbstentionBench_category":"False presumptions","CoCoNot_example_id":"c1"}'}],
+            "squad2": [{"question": "SQuAD?", "should_abstain": True, "metadata_json": "{}"}],
+        }
+        builder = SimpleNamespace(datasets=sources, download_and_prepare=Mock(),
+                                  as_dataset=Mock(side_effect=lambda split: sources[split]))
+        loader = Mock(return_value=builder)
+        with patch.dict(sys.modules, {"datasets": SimpleNamespace(load_dataset=Mock(), load_dataset_builder=loader)}):
+            result = bench.load_abstentionbench(scenario="false_premises")
+            underspecified = bench.load_abstentionbench(scenario="underspecified")
+        loader.assert_called_with(bench.DEFAULT_ABSTENTIONBENCH, trust_remote_code=True)
+        self.assertEqual([row["dataset_name"] for row in result], ["falseqa", "coconot"])
+        self.assertEqual(result[1]["id"], "c1")
+        self.assertEqual(underspecified[0]["scenario"], "underspecified_context")
+
+    def test_abstentionbench_local_jsonl_loader(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "examples.jsonl"
+            path.write_text('{"question":"Local?","should_abstain":0}\n', encoding="utf-8")
+            loader = Mock(return_value=[{"question": "Local?", "should_abstain": 0}])
+            with patch.dict(sys.modules, {"datasets": SimpleNamespace(load_dataset=loader)}):
+                result = bench.load_abstentionbench(str(path))
+            loader.assert_called_once_with("json", data_files=str(path), split="train")
+            self.assertEqual(result[0]["label"], 0)
+
+    def test_abstentionbench_split_stratifies_classes_and_scenarios(self):
+        rows = [
+            {"id": str(i), "question": f"Question {i}", "label": i % 2,
+             "is_false_premise": bool(i % 2), "scenario": "a" if i < 20 else "b"}
+            for i in range(40)
+        ]
+        first = bench.split_abstentionbench(rows, 12, 16, 7)
+        second = bench.split_abstentionbench(rows, 12, 16, 7)
+        self.assertEqual([[r["id"] for r in group] for group in first],
+                         [[r["id"] for r in group] for group in second])
+        self.assertEqual([len(group) for group in first], [12, 16])
+        for group in first:
+            self.assertEqual(sum(r["label"] for r in group), len(group) // 2)
+            self.assertEqual({r["scenario"] for r in group}, {"a", "b"})
+            for scenario in ("a", "b"):
+                self.assertEqual({r["label"] for r in group if r["scenario"] == scenario}, {0, 1})
+        bench.assert_disjoint_questions(*first)
+        with self.assertRaisesRegex(ValueError, "both classes"):
+            bench.split_abstentionbench([row for row in rows if row["label"]], 4, 4, 1)
+        conflicting = rows + [{**rows[0], "label": 1, "is_false_premise": True}]
+        with self.assertRaisesRegex(ValueError, "conflicting labels"):
+            bench.split_abstentionbench(conflicting, 4, 4, 1)
+
+    def test_abstentionbench_end_to_end_metrics_resume_and_resummarize(self):
+        # Import before patch.dict(sys.modules), which restores the module cache on exit.
+        import bench_llm_hrc  # noqa: F401
+
+        with tempfile.TemporaryDirectory() as temp:
+            raw = [
+                {"id": "repeated-id", "question": f"Synthetic item {i}?", "should_abstain": bool(i % 2),
+                 "scenario": "a" if i < 20 else "b", "dataset_name": "synthetic"}
+                for i in range(40)
+            ]
+            args = bench._parser().parse_args([
+                "--dataset", "abstentionbench", "--hf-dataset", "example/labeled", "--cal-size", "12",
+                "--limit", "20", "--out-dir", temp, "--max-false-halt-rate", "0.25",
+            ])
+            pipeline = StubPipeline()
+            pipeline.scores = {r["question"]: (-1.0 if r["should_abstain"] else 1.0) for r in raw}
+            loader = Mock(return_value={"train": raw})
+            with patch.dict(sys.modules, {"datasets": SimpleNamespace(load_dataset=loader)}), \
+                 patch.object(bench.os, "fsync"):
+                summary = bench.run_benchmark(args, pipeline=pipeline)
+                args.resume = True
+                with patch.object(bench, "_load_pipeline", side_effect=AssertionError("must resume")):
+                    resumed = bench.run_benchmark(args)
+            self.assertEqual((summary["calibration_n"], summary["evaluation_n"]), (12, 20))
+            self.assertEqual(resumed["evaluation_n"], 20)
+            saved = json.loads((Path(temp) / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["hf_dataset"], "example/labeled")
+            self.assertIsNone(saved["scenario_filter"])
+            self.assertEqual(summary["calibration"]["method"], "order_k")
+            self.assertTrue(math.isfinite(summary["calibration"]["cutoff"]))
+            point = summary["operating_points"]["v2_cal"]
+            for key in ("false_premise_halt_rate", "true_premise_false_halt_rate", "balanced_accuracy", "f1", "precision", "recall"):
+                self.assertTrue(math.isfinite(point[key]), key)
+            diagnostics = summary["decoupled_operating_points"]
+            self.assertTrue(math.isfinite(diagnostics["stage2_v2_cal_only"]["stealth_auroc"]))
+            for name in ("stage1_vm_only", "stage1_self_refusal_only", "stage2_v2_cal_only", "combined_self_refusal_or_v2_cal"):
+                self.assertTrue(math.isfinite(diagnostics[name]["f1"]))
+            out = Path(temp)
+            markdown = (out / "summary.md").read_text(encoding="utf-8")
+            v2_line = next(line for line in markdown.splitlines() if line.startswith("| v2_cal |"))
+            stealth_line = next(line for line in markdown.splitlines() if line.startswith("| stage2_v2_cal_only |"))
+            self.assertNotIn("n/a", v2_line)
+            self.assertNotIn("n/a", stealth_line)
+            records = [json.loads(line) for line in Path(summary["checkpoint"]).read_text(encoding="utf-8").splitlines()]
+            examples = [row for row in records if "example_key" in row]
+            self.assertEqual(len(examples), 32)
+            self.assertTrue(all(row["id"] == "repeated-id" and row["scenario"] in {"a", "b"}
+                                and row["dataset_name"] == "synthetic" for row in examples))
+            args.resummarize = True
+            with patch.object(bench, "load_abstentionbench", side_effect=AssertionError("no dataset reload")):
+                rebuilt = bench.run_benchmark(args)
+            self.assertEqual(rebuilt["calibration"]["method"], "order_k")
+            self.assertTrue(math.isfinite(rebuilt["decoupled_operating_points"]["stage2_v2_cal_only"]["stealth_auroc"]))
 
     def test_stratified_sampling_is_balanced_and_deterministic(self):
         rows = [

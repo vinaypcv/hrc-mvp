@@ -27,17 +27,56 @@ from typing import Any, Iterable, Optional, Sequence
 
 FALSEQA_BASE = "https://raw.githubusercontent.com/thunlp/FalseQA/main"
 DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+DEFAULT_ABSTENTIONBENCH = "facebook/AbstentionBench"
+
+# Dataset categories from AbstentionBench paper table 3. CoCoNot and KUQ
+# contain multiple scenarios and are classified from their per-row metadata.
+_ABSTENTION_SCENARIOS = {
+    **dict.fromkeys(("alcuna", "bbq", "big_bench_disambiguate", "gpqa_abstain",
+                     "gsm8k_abstain", "mediq", "mmlu_math_abstain", "musique",
+                     "qasper", "squad2", "umwp", "world_sense"), "underspecified_context"),
+    "big_bench_known_unknowns": "answer_unknown", "falseqa": "false_premises",
+    "qaqa": "false_premises", "situated_qa": "underspecified_intent",
+    "moral_choice": "subjective",
+}
+_COCONOT_SCENARIOS = {
+    "false presumptions": "false_premises", "incomprehensible": "underspecified_intent",
+    "underspecification": "underspecified_intent", "unknowns": "answer_unknown",
+    "unsupported": "answer_unknown", "temporal": "stale",
+    "subjective": "subjective", "humanizing": "subjective",
+}
+_KUQ_SCENARIOS = {
+    "ambiguous": "underspecified_intent", "controversial": "subjective",
+    "false assumption": "false_premises", "counterfactual": "false_premises",
+    "future unknown": "answer_unknown", "unsolved problem": "answer_unknown",
+}
+
+
+def _scenario_matches(value: Any, requested: str) -> bool:
+    def normalize(text: Any) -> str:
+        return re.sub(r"[\s-]+", "_", str(text or "").strip().casefold())
+    actual, wanted = normalize(value), normalize(requested)
+    if wanted == "underspecified":
+        return actual in {"underspecified", "underspecified_context", "underspecified_intent"}
+    if wanted in {"unanswerable", "answer_unknown"}:
+        return actual in {"unanswerable", "answer_unknown"}
+    if wanted in {"false_premise", "false_premises"}:
+        return actual in {"false_premise", "false_premises"}
+    return bool(actual) and actual == wanted
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluate the installed HRC cascade on FalseQA or TruthfulQA.",
+        description="Evaluate the installed HRC cascade on FalseQA, AbstentionBench, or TruthfulQA.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--dataset", choices=("falseqa", "truthfulqa"), default="falseqa")
+    parser.add_argument("--dataset", choices=("falseqa", "truthfulqa", "abstentionbench"), default="falseqa")
     parser.add_argument("--falseqa-dir", type=Path, help="Use local valid/train/test CSV files")
+    parser.add_argument("--hf-dataset", default=DEFAULT_ABSTENTIONBENCH,
+                        help="AbstentionBench Hugging Face dataset ID or local JSON/JSONL/Parquet file")
+    parser.add_argument("--abstentionbench-scenario", help="Filter AbstentionBench by scenario metadata")
     parser.add_argument("--limit", type=int, help="Stratified evaluation sample size")
-    parser.add_argument("--cal-size", type=int, default=60, help="FalseQA calibration sample size")
+    parser.add_argument("--cal-size", type=int, default=60, help="Labeled dataset calibration sample size")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Shared Stage-1 / Stage-2 model")
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
@@ -184,6 +223,148 @@ def load_truthfulqa() -> list[dict]:
     return rows
 
 
+def load_abstentionbench(dataset_id: str = DEFAULT_ABSTENTIONBENCH,
+                         scenario: Optional[str] = None) -> list[dict]:
+    """Normalize labeled Hugging Face rows without interpreting string booleans as truthy."""
+    try:
+        from datasets import load_dataset
+    except ImportError as exc:
+        raise RuntimeError("AbstentionBench requires the optional 'datasets' package.") from exc
+
+    path = Path(dataset_id)
+    if path.is_file():
+        suffix = path.suffix.casefold()
+        if suffix not in {".json", ".jsonl", ".parquet"}:
+            raise ValueError("Local AbstentionBench data must be JSON, JSONL, or Parquet")
+        data = load_dataset("parquet" if suffix == ".parquet" else "json", data_files=str(path), split="train")
+    elif dataset_id == DEFAULT_ABSTENTIONBENCH:
+        # Upstream's as_dataset() concatenates the sources and loses their names.
+        # Use the builder's documented source splits to retain their provenance.
+        try:
+            from datasets import load_dataset_builder
+            builder = load_dataset_builder(dataset_id, trust_remote_code=True)
+            builder.download_and_prepare()
+            data = {name: builder.as_dataset(split=name) for name in builder.datasets}
+        except RuntimeError as exc:
+            if "scripts are no longer supported" in str(exc).casefold():
+                raise RuntimeError("The official AbstentionBench script requires datasets<=3.6.0; see its dataset card.") from exc
+            raise
+    else:
+        data = load_dataset(dataset_id)
+
+    # DatasetDicts carry source split names; a single Dataset is iterable over records.
+    sources = data.items() if isinstance(data, dict) else [("abstentionbench", data)]
+    rows = []
+    for source, examples in sources:
+        for index, item in enumerate(examples):
+            raw_question = next((item.get(key) for key in ("question", "prompt", "query")
+                                 if isinstance(item.get(key), str) and item[key].strip()), None)
+            if raw_question is None:
+                raise ValueError(f"AbstentionBench row {source}:{index} has no question, prompt, or query")
+            value = item.get("should_abstain")
+            if isinstance(value, bool):
+                label = int(value)
+            elif isinstance(value, int) and value in (0, 1):
+                label = value
+            else:
+                raise ValueError(f"AbstentionBench row {source}:{index} has invalid should_abstain: {value!r}")
+            metadata = item.get("metadata_json", {})
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            row_scenario = item.get("scenario", metadata.get("scenario"))
+            dataset_name = item.get("dataset_name", metadata.get("dataset_name"))
+            raw_id = item.get("id", metadata.get("id"))
+            if dataset_id == DEFAULT_ABSTENTIONBENCH:
+                dataset_name = dataset_name or str(source)
+                if row_scenario is None:
+                    if source == "coconot":
+                        row_scenario = _COCONOT_SCENARIOS.get(str(metadata.get("CoCoNot_AbstentionBench_category", "")).casefold())
+                    elif source == "known_unknown_questions":
+                        row_scenario = _KUQ_SCENARIOS.get(str(metadata.get("KUQ_category", "")).casefold())
+                    else:
+                        row_scenario = _ABSTENTION_SCENARIOS.get(source)
+                if raw_id is None and source == "coconot":
+                    raw_id = metadata.get("CoCoNot_example_id")
+            if scenario is not None and not _scenario_matches(row_scenario, scenario):
+                continue
+            rows.append({
+                "id": str(raw_id) if raw_id is not None else f"{source}:{index}",
+                "_checkpoint_id": f"{source}:{index}",
+                "question": raw_question.strip(), "label": label,
+                "is_false_premise": bool(label), "split": str(source),
+                "scenario": row_scenario, "dataset_name": dataset_name,
+            })
+    if not rows:
+        raise ValueError("No AbstentionBench examples found; check the scenario and available metadata")
+    return rows
+
+
+def _balanced_counts(size: int, positive: int, negative: int) -> tuple[int, int]:
+    if size < 2 or positive < 1 or negative < 1 or size > positive + negative:
+        raise ValueError("Calibration and evaluation must each contain both classes; check sizes and label counts")
+    pos = min(size // 2, positive)
+    neg = min(size - size // 2, negative)
+    deficit = size - pos - neg
+    extra_pos = min(deficit, positive - pos)
+    pos += extra_pos
+    neg += deficit - extra_pos
+    if not pos or not neg:
+        raise ValueError("Calibration and evaluation must each contain both classes")
+    return pos, neg
+
+
+def _sample_scenarios(rows: Sequence[dict], count: int, rng: random.Random) -> list[dict]:
+    """Allocate each class's quota proportionally across available scenarios."""
+    groups: dict[str, list[dict]] = {}
+    for row in rows:
+        groups.setdefault(str(row.get("scenario") or ""), []).append(row)
+    selected: list[dict] = []
+    quotas = {key: 0 for key in groups}
+    keys = sorted(groups)
+    for _ in range(count):
+        candidates = [key for key in keys if quotas[key] < len(groups[key])]
+        key = max(candidates, key=lambda k: count * len(groups[k]) / len(rows) - quotas[k])
+        quotas[key] += 1
+    for key in keys:
+        selected.extend(rng.sample(groups[key], quotas[key]))
+    rng.shuffle(selected)
+    return selected
+
+
+def split_abstentionbench(rows: Sequence[dict], cal_size: int, limit: Optional[int],
+                          seed: int) -> tuple[list[dict], list[dict]]:
+    """Deduplicate questions, then split by class and scenario without overlap."""
+    unique: dict[str, dict] = {}
+    for row in rows:
+        key = normalize_question(row["question"])
+        if not key:
+            raise ValueError("AbstentionBench contains a question with no searchable text")
+        if key in unique and unique[key]["label"] != row["label"]:
+            raise ValueError("Duplicate AbstentionBench questions have conflicting labels")
+        unique.setdefault(key, row)
+    positives = [row for row in unique.values() if row["label"] == 1]
+    negatives = [row for row in unique.values() if row["label"] == 0]
+    cal_pos, cal_neg = _balanced_counts(cal_size, len(positives) - 1, len(negatives) - 1)
+    rng = random.Random(seed)
+    cal_rows = _sample_scenarios(positives, cal_pos, rng) + _sample_scenarios(negatives, cal_neg, rng)
+    used = {normalize_question(row["question"]) for row in cal_rows}
+    pos_remaining = [row for row in positives if normalize_question(row["question"]) not in used]
+    neg_remaining = [row for row in negatives if normalize_question(row["question"]) not in used]
+    available = len(pos_remaining) + len(neg_remaining)
+    eval_size = available if limit is None else min(limit, available)
+    eval_pos, eval_neg = _balanced_counts(eval_size, len(pos_remaining), len(neg_remaining))
+    eval_rows = _sample_scenarios(pos_remaining, eval_pos, rng) + _sample_scenarios(neg_remaining, eval_neg, rng)
+    rng.shuffle(cal_rows)
+    rng.shuffle(eval_rows)
+    assert_disjoint_questions(cal_rows, eval_rows)
+    return cal_rows, eval_rows
+
+
 def _average_precision(positive_scores: Sequence[float], negative_scores: Sequence[float]) -> float:
     """Average precision for positive scores; ties are handled as one threshold."""
     if not positive_scores or not negative_scores:
@@ -286,7 +467,17 @@ def _fingerprint(args: argparse.Namespace, cal_rows: Sequence[dict], eval_rows: 
         "cal_labels": [row.get("label") for row in cal_rows],
         "eval_labels": [row.get("label") for row in eval_rows],
     }
+    if args.dataset == "abstentionbench":
+        payload.update({
+            "hf_dataset": args.hf_dataset, "scenario": args.abstentionbench_scenario,
+            "cal_metadata": [(r.get("_checkpoint_id"), r.get("scenario"), r.get("dataset_name")) for r in cal_rows],
+            "eval_metadata": [(r.get("_checkpoint_id"), r.get("scenario"), r.get("dataset_name")) for r in eval_rows],
+        })
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _example_key(row: dict, split: str) -> str:
+    return f"{split}:{row.get('_checkpoint_id', row['id'])}"
 
 
 def _read_checkpoint(path: Path, *, resume: bool, fingerprint: str) -> dict[str, dict]:
@@ -353,7 +544,7 @@ def _score_example(pipeline: Any, row: dict, split: str, fingerprint: str) -> di
     stage1_halted = result.decision == "HALT_STAGE1"
     threshold = float(pipeline.config.stage2_cutoff)
     record = {
-        "example_key": f"{split}:{row['id']}",
+        "example_key": _example_key(row, split),
         "id": str(row["id"]), "split": split, "question": row["question"],
         "source_split": row.get("split"),
         "is_false_premise": row.get("is_false_premise"), "label": row.get("label"),
@@ -367,6 +558,9 @@ def _score_example(pipeline: Any, row: dict, split: str, fingerprint: str) -> di
         "latency_ms": max(float(result.latency_ms), (time.perf_counter() - started) * 1000.0),
         "run_fingerprint": fingerprint,
     }
+    for key in ("scenario", "dataset_name"):
+        if key in row:
+            record[key] = row[key]
     return record
 
 
@@ -381,7 +575,7 @@ def _score_rows(pipeline: Any, rows: Sequence[dict], split: str, checkpoint_path
                 settings: Optional[dict] = None) -> list[dict]:
     completed = []
     for row in rows:
-        key = f"{split}:{row['id']}"
+        key = _example_key(row, split)
         if key in checkpoint:
             completed.append(checkpoint[key])
             continue
@@ -473,10 +667,14 @@ def _summary_payload(args: argparse.Namespace, cal_rows: Sequence[dict], eval_ro
     return {
         "protocol": (
             "FalseQA leakage-free disjoint valid/train calibration and test evaluation"
-            if args.dataset == "falseqa"
-            else "TruthfulQA generation split; no false-premise labels available"
+            if args.dataset == "falseqa" else
+            "AbstentionBench deduplicated, stratified, disjoint calibration and evaluation"
+            if args.dataset == "abstentionbench" else
+            "TruthfulQA generation split; no false-premise labels available"
         ),
         "dataset": args.dataset,
+        **({"hf_dataset": args.hf_dataset, "scenario_filter": args.abstentionbench_scenario}
+           if args.dataset == "abstentionbench" else {}),
         "model": args.model,
         "device": args.device,
         "dtype": args.dtype,
@@ -513,8 +711,10 @@ def _write_summaries(out_dir: Path, summary: dict) -> None:
                          _fmt(metrics["true_premise_false_halt_rate"]), _fmt(metrics["balanced_accuracy"]),
                          _fmt(metrics["f1"]), _fmt(metrics["precision"]), _fmt(metrics["recall"]),
                          _fmt(metrics["mean_latency_ms"])))
+    tpr_label = "Should-abstain HALT (TPR)" if summary["dataset"] == "abstentionbench" else "False-premise HALT (TPR)"
+    fpr_label = "Should-answer false HALT (FPR)" if summary["dataset"] == "abstentionbench" else "True-premise false HALT (FPR)"
     table = [
-        "| Operating point | Cutoff | False-premise HALT (TPR) | True-premise false HALT (FPR) | Balanced accuracy | F1 | Precision | Recall | Mean latency (ms/item) |",
+        f"| Operating point | Cutoff | {tpr_label} | {fpr_label} | Balanced accuracy | F1 | Precision | Recall | Mean latency (ms/item) |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     table.extend("| " + " | ".join(row) + " |" for row in rows)
@@ -522,7 +722,7 @@ def _write_summaries(out_dir: Path, summary: dict) -> None:
     decoupled_table = [
         "## Decoupled diagnostic operating points",
         "",
-        "| Operating point | False-premise HALT (TPR) | True-premise false HALT (FPR) | Balanced accuracy | F1 | Stealth AUROC (non-refused) |",
+        f"| Operating point | {tpr_label} | {fpr_label} | Balanced accuracy | F1 | Stealth AUROC (non-refused) |",
         "|---|---:|---:|---:|---:|---:|",
     ]
     for name in (
@@ -554,7 +754,8 @@ def _write_summaries(out_dir: Path, summary: dict) -> None:
         + "\n".join(decoupled_table)
         + extra
         + f"\n\nNaive Stage-1 self-refusal rate: **{_fmt(summary['stage1_self_refusal_baseline']['self_refusal_rate'])}** overall "
-        + f"(**{_fmt(summary['stage1_self_refusal_baseline']['false_premise_self_refusal_rate'])}** on false-premise items). "
+        + f"(**{_fmt(summary['stage1_self_refusal_baseline']['false_premise_self_refusal_rate'])}** on "
+        + ("should-abstain items). " if summary["dataset"] == "abstentionbench" else "false-premise items). ")
         + f"Mean end-to-end latency: **{_fmt(summary['mean_latency_ms'])} ms/item**.\n"
     )
     (out_dir / "summary.md").write_text(content, encoding="utf-8")
@@ -631,7 +832,8 @@ def _resummarize(args: argparse.Namespace) -> dict:
     checkpoint_path = candidates[-1]
     metadata, records = _read_checkpoint_file(checkpoint_path)
     settings = metadata.get("settings", {})
-    for key in ("model", "device", "dtype", "seed", "max_new_tokens", "cal_size", "limit", "max_false_halt_rate"):
+    for key in ("model", "device", "dtype", "seed", "max_new_tokens", "cal_size", "limit", "max_false_halt_rate",
+                "hf_dataset", "abstentionbench_scenario"):
         if key in settings:
             setattr(args, key, settings[key])
     cal_records = [row for row in records if row.get("split") == "cal"]
@@ -650,8 +852,10 @@ def _resummarize(args: argparse.Namespace) -> dict:
         for row in eval_records
     ]
     cutoff, calibration = (None, None)
-    if args.dataset == "falseqa":
+    if args.dataset in {"falseqa", "abstentionbench"}:
         cutoff, calibration = _fit_order_k_cutoff(cal_records, args.max_false_halt_rate)
+        if cutoff is None and args.dataset == "abstentionbench":
+            raise ValueError("Cannot fit v2_cal order_k cutoff: calibration split has no label=0 examples.")
         calibration["cutoff"] = cutoff
     final_cutoff = float(cutoff) if cutoff is not None else 0.0
     checkpoint = {}
@@ -682,7 +886,7 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
         raise ValueError("max-new-tokens must be positive")
     if not 0.0 <= args.max_false_halt_rate <= 1.0:
         raise ValueError("max-false-halt-rate must be between 0 and 1")
-    if args.cal_size < 2 and args.dataset == "falseqa":
+    if args.cal_size < 2 and args.dataset in {"falseqa", "abstentionbench"}:
         raise ValueError("cal-size must be at least 2")
     if args.dataset == "falseqa":
         cache_dir = Path(".hrc_cache/falseqa")
@@ -705,6 +909,9 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
         eval_rows = stratified_sample(eval_all, args.limit, args.seed + 1)
         assert_disjoint_questions(cal_all, eval_all)
         assert_disjoint_questions(cal_rows, eval_rows)
+    elif args.dataset == "abstentionbench":
+        rows = load_abstentionbench(args.hf_dataset, args.abstentionbench_scenario)
+        cal_rows, eval_rows = split_abstentionbench(rows, args.cal_size, args.limit, args.seed)
     else:
         cal_all, cal_rows = [], []
         eval_rows = load_truthfulqa()
@@ -722,7 +929,9 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
         "seed": args.seed, "max_new_tokens": args.max_new_tokens, "cal_size": args.cal_size,
         "limit": args.limit, "max_false_halt_rate": args.max_false_halt_rate,
     }
-    all_expected_keys = [f"cal:{row['id']}" for row in cal_rows] + [f"eval:{row['id']}" for row in eval_rows]
+    if args.dataset == "abstentionbench":
+        run_settings.update({"hf_dataset": args.hf_dataset, "abstentionbench_scenario": args.abstentionbench_scenario})
+    all_expected_keys = [_example_key(row, "cal") for row in cal_rows] + [_example_key(row, "eval") for row in eval_rows]
     complete_checkpoint = bool(all_expected_keys) and all(key in checkpoint for key in all_expected_keys)
     if pipeline is None and not complete_checkpoint:
         pipeline = _load_pipeline(args)
@@ -735,14 +944,14 @@ def run_benchmark(args: argparse.Namespace, *, pipeline: Any = None) -> dict:
     )
     cutoff = None
     calibration = None
-    if args.dataset == "falseqa":
+    if args.dataset in {"falseqa", "abstentionbench"}:
         cutoff, calibration = _fit_order_k_cutoff(cal_scored, args.max_false_halt_rate)
         if cutoff is None:
             raise ValueError("Cannot fit v2_cal order_k cutoff: calibration split has no label=0 examples.")
         calibration["cutoff"] = cutoff
         if pipeline is not None:
             pipeline.config.stage2_cutoff = float(cutoff)
-    if pipeline is None and any(f"eval:{row['id']}" not in checkpoint for row in eval_rows):
+    if pipeline is None and any(_example_key(row, "eval") not in checkpoint for row in eval_rows):
         pipeline = _load_pipeline(args)
     if pipeline is not None and cutoff is not None:
         pipeline.config.stage2_cutoff = float(cutoff)
