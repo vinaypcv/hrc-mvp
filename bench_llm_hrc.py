@@ -844,7 +844,7 @@ class HRCLLMEngine:
         print(f"[1/2] Loading {model_id} on {self.device}{cache_note}...", flush=True)
         model_kwargs = {"low_cpu_mem_usage": True}
         if load_in_4bit:
-            if not self.device.startswith("cuda"):
+            if not str(self.device).startswith("cuda"):
                 raise RuntimeError("4-bit loading requires a CUDA device; use --device cuda in a CUDA runtime.")
             try:
                 import bitsandbytes  # noqa: F401
@@ -858,7 +858,7 @@ class HRCLLMEngine:
                     bnb_4bit_quant_type="nf4",
                     bnb_4bit_use_double_quant=True,
                 ),
-                "device_map": {"": self.device},
+                "device_map": {"": 0 if str(self.device) == "cuda" else str(self.device)},
             })
         self.tokenizer, loaded_model = load_hf_local_first(
             model_id,

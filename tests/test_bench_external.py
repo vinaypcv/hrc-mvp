@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from hrc import HRCResult
 from scripts import bench_external as bench
@@ -95,6 +95,72 @@ class ExternalBenchmarkTests(unittest.TestCase):
         self.assertEqual(metrics["true_premise_false_halt_rate"], 0.5)
         self.assertAlmostEqual(metrics["f1"], 0.5)
 
+    def test_order_k_calibration_uses_floor_index_and_records_negative_count(self):
+        rows = [
+            {"label": 0, "s_dual": float(score)} for score in range(60)
+        ] + [
+            {"label": 1, "s_dual": -100.0},
+        ]
+        cutoff, calibration = bench._fit_order_k_cutoff(rows, 0.05)
+        self.assertEqual(cutoff, 3.0)
+        self.assertEqual(calibration["method"], "order_k")
+        self.assertEqual(calibration["method_alias"], "ordk")
+        self.assertEqual(calibration["n_cal_neg"], 60)
+        self.assertEqual(calibration["order_index"], 3)
+
+    def test_decoupled_stage2_and_combined_metrics_are_distinct(self):
+        rows = [
+            {"is_false_premise": True, "s_dual": -1.0, "stage1_halted": False,
+             "stage1_self_refusal": False, "latency_ms": 1.0},
+            {"is_false_premise": True, "s_dual": 1.0, "stage1_halted": False,
+             "stage1_self_refusal": False, "latency_ms": 1.0},
+            {"is_false_premise": False, "s_dual": 1.0, "stage1_halted": False,
+             "stage1_self_refusal": True, "latency_ms": 1.0},
+            {"is_false_premise": False, "s_dual": 1.0, "stage1_halted": True,
+             "stage1_self_refusal": False, "latency_ms": 1.0},
+        ]
+        points = bench._decoupled_operating_points(rows, 0.0)
+        stage2 = points["stage2_v2_cal_only"]
+        combined = points["combined_self_refusal_or_v2_cal"]
+        self.assertEqual((stage2["tp"], stage2["fp"]), (1, 0))
+        self.assertEqual((combined["tp"], combined["fp"]), (1, 1))
+        self.assertAlmostEqual(stage2["false_premise_halt_rate"], 0.5)
+        self.assertAlmostEqual(combined["true_premise_false_halt_rate"], 0.5)
+        self.assertIsNotNone(stage2["stealth_auroc"])
+
+    def test_four_bit_cuda_torch_device_uses_integer_device_map(self):
+        import sys
+        import torch
+        import bench_llm_hrc as legacy
+
+        class FakeBitsAndBytesConfig:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class FakeTokenizer:
+            pad_token_id = 0
+            eos_token = "<eos>"
+            pad_token = None
+
+        model = SimpleNamespace(eval=Mock(), to=Mock(side_effect=AssertionError("4-bit model must not be moved")))
+        captured = {}
+
+        def fake_loader(model_id, **kwargs):
+            captured.update(kwargs)
+            return FakeTokenizer(), model
+
+        transformer_stub = SimpleNamespace(BitsAndBytesConfig=FakeBitsAndBytesConfig)
+        with patch.object(legacy, "_resolve_device_dtype", return_value=(torch.device("cuda"), torch.float16)), \
+             patch.object(legacy, "_has_complete_local_hf_checkpoint", return_value=True), \
+             patch.object(legacy, "load_hf_local_first", side_effect=fake_loader), \
+             patch.dict(sys.modules, {"bitsandbytes": SimpleNamespace(), "transformers": transformer_stub}):
+            engine = legacy.HRCLLMEngine(model_id="stub/model", device=torch.device("cuda"), load_in_4bit=True)
+
+        self.assertIs(engine.model, model)
+        self.assertEqual(captured["device_map"], {"": 0})
+        self.assertTrue(captured["quantization_config"].kwargs["load_in_4bit"])
+        model.to.assert_not_called()
+
     def test_resume_skips_completed_jsonl_ids(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -160,6 +226,47 @@ class ExternalBenchmarkTests(unittest.TestCase):
             records = [json.loads(line) for line in checkpoint.read_text(encoding="utf-8").splitlines()]
             self.assertEqual(sum("example_key" in row for row in records), 16)
             self.assertTrue(all("stage2_verdict" in row and "s_dual" in row for row in records if "example_key" in row))
+
+    def test_resummarize_rebuilds_outputs_without_loading_dataset_or_model(self):
+        with tempfile.TemporaryDirectory() as temp:
+            out_dir = Path(temp) / "out"
+            out_dir.mkdir()
+            checkpoint_path = out_dir / "falseqa_test.jsonl"
+            meta = {"_meta": {"fingerprint": "resume-test", "format": 1, "settings": {
+                "dataset": "falseqa", "model": "stub/model", "device": "cpu", "dtype": "float32",
+                "seed": 42, "max_new_tokens": 8, "cal_size": 2, "limit": 2,
+                "max_false_halt_rate": 0.5,
+            }}}
+            records = [
+                {"example_key": "cal:c0", "id": "c0", "split": "cal", "question": "cal true",
+                 "source_split": "valid", "label": 0, "is_false_premise": False, "s_dual": -0.5,
+                 "stage1_self_refusal": False, "stage1_halted": False, "latency_ms": 2.0},
+                {"example_key": "cal:c1", "id": "c1", "split": "cal", "question": "cal false",
+                 "source_split": "valid", "label": 1, "is_false_premise": True, "s_dual": -1.0,
+                 "stage1_self_refusal": False, "stage1_halted": False, "latency_ms": 2.0},
+                {"example_key": "eval:e0", "id": "e0", "split": "eval", "question": "eval true",
+                 "source_split": "test", "label": 0, "is_false_premise": False, "s_dual": 0.2,
+                 "stage1_self_refusal": False, "stage1_halted": False, "latency_ms": 3.0},
+                {"example_key": "eval:e1", "id": "e1", "split": "eval", "question": "eval false",
+                 "source_split": "test", "label": 1, "is_false_premise": True, "s_dual": -0.9,
+                 "stage1_self_refusal": True, "stage1_halted": False, "latency_ms": 3.0},
+            ]
+            checkpoint_path.write_text(
+                "\n".join(json.dumps(row) for row in [meta, *records]) + "\n", encoding="utf-8"
+            )
+            (out_dir / "summary.json").write_text("{}", encoding="utf-8")
+            (out_dir / "summary.md").write_text("old", encoding="utf-8")
+            args = bench._parser().parse_args(["--out-dir", str(out_dir), "--resummarize"])
+            with patch.object(bench, "_load_pipeline", side_effect=AssertionError("must not load a model")), \
+                 patch.object(bench, "load_falseqa_split", side_effect=AssertionError("must not load a dataset")), \
+                 patch.object(bench, "load_truthfulqa", side_effect=AssertionError("must not load a dataset")):
+                summary = bench.run_benchmark(args)
+            saved = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["n_cal_neg"], 1)
+            self.assertEqual(saved["calibration_method"], "order_k")
+            self.assertEqual(saved["calibration_method_alias"], "ordk")
+            self.assertEqual(saved["n_cal_neg"], 1)
+            self.assertIn("Decoupled diagnostic operating points", (out_dir / "summary.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
