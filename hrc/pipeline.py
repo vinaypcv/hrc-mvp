@@ -85,13 +85,21 @@ def _bench_module():
     return bench_llm_hrc
 
 
-def _load_engine(model_id: str, *, device: str, dtype: str, force_offline: bool = False):
+def _load_engine(
+    model_id: str,
+    *,
+    device: str,
+    dtype: str,
+    force_offline: bool = False,
+    load_in_4bit: bool = False,
+):
     bench = _bench_module()
     return bench.HRCLLMEngine(
         model_id=model_id,
         force_offline=force_offline,
         device=device,
         dtype=dtype,
+        load_in_4bit=load_in_4bit,
     )
 
 
@@ -127,6 +135,7 @@ class HRCPipeline:
     ) -> "HRCPipeline":
         """Load model engines, sharing one engine when both model IDs match."""
         force_offline = bool(kwargs.pop("force_offline", False))
+        load_in_4bit = bool(kwargs.pop("load_in_4bit", False))
         memory_tau_res = float(kwargs.pop("memory_tau_res", 0.45))
         memory_tau_inject = float(kwargs.pop("memory_tau_inject", 0.78))
         config = HRCConfig(
@@ -139,6 +148,7 @@ class HRCPipeline:
             device=config.device,
             dtype=config.dtype,
             force_offline=force_offline,
+            load_in_4bit=load_in_4bit,
         )
         if config.stage2_mode == "off" or config.stage2_model == config.stage1_model:
             stage2_engine = stage1_engine
@@ -148,6 +158,7 @@ class HRCPipeline:
                 device=config.device,
                 dtype=config.dtype,
                 force_offline=force_offline,
+                load_in_4bit=load_in_4bit,
             )
         return cls(
             config,

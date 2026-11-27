@@ -835,22 +835,40 @@ class Layer3ResonantMemory:
 # LAYER 1 + LAYER 2: KURAMOTO SEMANTIC-EQUILIBRIUM ENGINE ON OPEN LLM
 # ==============================================================================
 class HRCLLMEngine:
-    def __init__(self, model_id: str = MODEL_ID, force_offline: bool = False, dtype=None, device=None):
+    def __init__(self, model_id: str = MODEL_ID, force_offline: bool = False, dtype=None, device=None, load_in_4bit: bool = False):
         requested_device = ACTIVE_DEVICE if device is None else device
         requested_dtype = (ACTIVE_DTYPE if dtype is None else dtype)
         self.device, dtype = _resolve_device_dtype(requested_device, requested_dtype)
         local_files_only = _has_complete_local_hf_checkpoint(model_id)
         cache_note = " (complete local cache; skipping Hub checks)" if local_files_only else ""
         print(f"[1/2] Loading {model_id} on {self.device}{cache_note}...", flush=True)
+        model_kwargs = {"low_cpu_mem_usage": True}
+        if load_in_4bit:
+            if not self.device.startswith("cuda"):
+                raise RuntimeError("4-bit loading requires a CUDA device; use --device cuda in a CUDA runtime.")
+            try:
+                import bitsandbytes  # noqa: F401
+                from transformers import BitsAndBytesConfig
+            except Exception as exc:
+                raise ImportError("4-bit loading requires a working bitsandbytes installation and CUDA support.") from exc
+            model_kwargs.update({
+                "quantization_config": BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=dtype,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                ),
+                "device_map": {"": self.device},
+            })
         self.tokenizer, loaded_model = load_hf_local_first(
             model_id,
             force_offline=force_offline,
             dtype=dtype,
-            low_cpu_mem_usage=True,
+            **model_kwargs,
         )
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = loaded_model.to(self.device)
+        self.model = loaded_model if load_in_4bit else loaded_model.to(self.device)
         self.model.eval()
         print("[2/2] HRC Layer 2 (V_m) + Layer 3 (Resonant Memory) initialized.", flush=True)
 
