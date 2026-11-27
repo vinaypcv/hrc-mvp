@@ -3437,6 +3437,455 @@ def run_m2_l2_asymmetric(
     gc.collect()
 
 
+V2_TRAP_CONTEXT_FACTS = {
+    # Short, factual, entity-matched context used only for the Layer 3 stress suite.
+    "C_TA01": "Franz Schubert was an Austrian composer who died in 1828; Igor Stravinsky composed The Rite of Spring, premiered in 1913.",
+    "C_TA02": "Ruby is red corundum; blue corundum is called sapphire, with color affected by trace elements.",
+    "C_TA03": "The Moonlight Sonata was composed by Ludwig van Beethoven, not Wolfgang Amadeus Mozart.",
+    "C_TA04": "The Sahara is in North Africa and spans several African countries.",
+    "C_TA05": "Vincent van Gogh painted The Starry Night in 1889; Johann Sebastian Bach was a composer.",
+    "C_TA06": "The Nile's White Nile headwaters are in the Lake Victoria region; its Blue Nile source is Lake Tana in Ethiopia.",
+    "C_TA07": "The DNA double-helix structure was described in 1953; Charles Darwin died in 1882.",
+    "C_TA08": "The Mona Lisa is a painting by Leonardo da Vinci, not a carved sculpture.",
+    "C_TA09": "Jupiter's faint ring system was discovered by Voyager 1 in 1979.",
+    "C_TA10": "The Kalahari is a large arid region spanning Botswana, Namibia, and South Africa; it has no capital city.",
+    "C_TA11": "The dodo was a flightless bird native to Mauritius.",
+    "C_TC01": "Whales are mammals that breathe air; they are not fish.",
+    "C_TC02": "Granite is an igneous rock formed from cooling magma, not an organic product.",
+    "C_TC03": "A Euclidean circle is not a four-sided polygon; a square has four straight sides.",
+    "C_TC04": "Bacteria are single-celled prokaryotes, not mammals.",
+    "C_TC05": "Molten rock is liquid; at ordinary room conditions rock is solid.",
+    "C_TC06": "Reptiles and amphibians are distinct vertebrate classes; a living animal is not taxonomically both by definition.",
+    "C_TC07": "Sound is a mechanical wave and cannot propagate through a perfect vacuum without a medium.",
+    "C_TC08": "Leprechauns and their houses at rainbows are folklore, not verified physical entities.",
+    "C_TN01": "Socrates lived in ancient Greece, centuries before the internet and personal blogs.",
+    "C_TN02": "Alexander the Great lived in the fourth century BCE, long before smartphones existed.",
+    "C_TN03": "Viking ships in the ninth century were sail- and oar-powered; practical steam engines came much later.",
+    "C_TN04": "Hannibal crossed the Alps in antiquity, long before electronic mail existed.",
+    "C_TN05": "Woolly mammoths predated diesel locomotives by millennia and are extinct.",
+    "C_TN06": "Stonehenge was built in prehistoric Britain, thousands of years before electric elevators.",
+    "C_TM01": "Unicorns are legendary creatures; no wild unicorn species or natural habitat is scientifically established.",
+    "C_TM02": "Mermaids are figures of folklore, not a scientifically recognized animal species.",
+    "C_TM03": "Fire-breathing dragons are mythical; no biological incubation period is known.",
+    "C_TM04": "Phoenixes are legendary birds, not a real migratory species.",
+    "C_TM05": "Yetis are cryptids of folklore, not animals registered in Nepal's wildlife census.",
+    "H2_TA01": "Pyotr Ilyich Tchaikovsky died in 1893, before jazz recordings existed; he was a classical composer.",
+    "H2_TA02": "Sapphire is corundum; red corundum is ruby, and chromium commonly gives ruby its red color.",
+    "H2_TA03": "Guernica is a painting by Pablo Picasso, created in 1937; Michelangelo lived centuries earlier.",
+    "H2_TA04": "The Yangtze rises on the Tibetan Plateau in China, not in Peru.",
+    "H2_TA05": "The Harry Potter film music was composed by John Williams and others; Chopin died in 1849.",
+    "H2_TA06": "The Gobi is a desert region across Mongolia and China and has no capital city.",
+    "H2_TA07": "Machu Picchu was built by the Inca in the Andes; it was not built by an Egyptian pharaoh.",
+    "H2_TA08": "Vincent van Gogh was a painter, not a symphony composer.",
+    "H2_TA09": "Neptune was discovered in 1846; its rings were observed by Voyager 2 in 1989, not photographed by Galileo in 1610.",
+    "H2_TA10": "The Great Barrier Reef is a marine ecosystem off Australia, not a city or political capital.",
+    "H2_TA11": "Non-avian dinosaurs are extinct; no living dinosaur species migrates today.",
+    "H2_TA12": "The Mekong rises in the Tibetan Plateau region; Roman aqueducts are not its source.",
+    "H2_TC01": "Butterflies are insects, not mammals.",
+    "H2_TC02": "Basalt is a volcanic igneous rock, not a fruit.",
+    "H2_TC03": "A dimensionless geometric point has no positive radius.",
+    "H2_TC04": "Mushrooms are fungi, not birds.",
+    "H2_TC05": "Common gases such as oxygen and nitrogen are not solids at room temperature and normal pressure.",
+    "H2_TC06": "A triangle has three sides; a five-sided polygon is a pentagon.",
+    "H2_TC07": "An object cannot simultaneously have exactly zero mass and positive mass under the same definition.",
+    "H2_TC08": "A pentagon has five straight sides, not two.",
+    "H2_TC09": "Mammals obtain energy through metabolism; no mammal relies entirely on photosynthesis without digestion.",
+    "H2_TN01": "Aristotle lived in ancient Greece, centuries before social media or online accounts.",
+    "H2_TN02": "Joan of Arc lived in the fifteenth century, long before radio broadcasting.",
+    "H2_TN03": "The first Japanese submarine was built centuries after 1500; samurai did not cross the Atlantic in submarines.",
+    "H2_TN04": "Johannes Gutenberg developed movable-type printing in the fifteenth century, before the web existed.",
+    "H2_TN05": "Triceratops was a non-avian dinosaur, extinct tens of millions of years before smartwatches.",
+    "H2_TN06": "The Palace of Versailles opened in the seventeenth century, before television broadcasting.",
+    "H2_TN07": "Neanderthals lived in prehistory, long before telephones existed.",
+    "H2_TM01": "Goblins are mythological beings, not a scientifically recognized species native to Ireland.",
+    "H2_TM02": "Pegasus is a creature of Greek mythology, not a wild animal with measured flight records.",
+    "H2_TM03": "Cyclopes are mythological; they do not appear in Greece's population census.",
+    "H2_TM04": "Fairies are folklore, not a verified wildlife species with an annual migration.",
+    "H2_TM05": "Griffins are legendary creatures, not a real nesting species.",
+    "H2_TM06": "Sea serpents are legendary; no research vessel has tagged a confirmed living specimen.",
+    "H2_TM07": "Goblins are folklore, not a wild species with a measured average lifespan.",
+}
+
+
+def _v2_l3_seed_entries(specs, valid_facts_only=False):
+    """Turn v2 specs into entity-keyed factual memory entries."""
+    entries = []
+    for spec in specs:
+        is_valid = spec["category"] != "false_premise"
+        if valid_facts_only and not is_valid:
+            continue
+        if is_valid:
+            aliases = spec.get("gold_answers") or []
+            fact = f"{spec['entity']}: {aliases[0]}."
+        else:
+            fact = V2_TRAP_CONTEXT_FACTS.get(spec["id"])
+            if not fact:
+                raise ValueError(f"No curated true-context fact for trap {spec['id']}.")
+        entries.append({"id": spec["id"], "entity": spec["entity"], "fact": fact, "store_q": spec["q"]})
+    return entries
+
+
+def _build_v2_l3_memory(engine, seed_entries, center_specs=None, tau_res=0.45, tau_inject=0.78):
+    """Embed exact entity-keyed memories and fit the existing guarded hybrid index."""
+    center_specs = center_specs or seed_entries
+    center_texts = [spec["q"] for spec in center_specs]
+    key_texts = [entry["store_q"] for entry in seed_entries]
+    all_texts = list(dict.fromkeys(center_texts + key_texts))
+    vectors = engine.embed_texts_batched(all_texts, batch_size=64)
+    vector_by_text = {text: vectors[index] for index, text in enumerate(all_texts)}
+    memory = Layer3ResonantMemory(tau_res=tau_res, hybrid_alpha=0.25, tau_inject=tau_inject)
+    if center_texts:
+        memory.fit_isotropy_center(torch.stack([vector_by_text[text] for text in center_texts]))
+    for entry in seed_entries:
+        memory.consolidate(entry["id"], vector_by_text[entry["store_q"]], entry["fact"], entry["store_q"])
+    return memory
+
+
+def _coupled_stage1_row(engine, spec, memory, v_crit):
+    result = engine.infer_with_vm(spec["q"], memory=memory, v_crit=v_crit)
+    aliases = spec.get("gold_answers") or []
+    is_valid = bool(aliases)
+    return {
+        "id": spec["id"], "split": "v2_holdout", "query": spec["q"],
+        "entity": spec["entity"], "category": spec["category"],
+        "trap_category": spec.get("trap_category"), "gold_answers": aliases,
+        "is_valid": is_valid, "answer": result["answer"],
+        "answer_correct": is_correct_answer(result["answer"], aliases) if is_valid else None,
+        "stage1_pass": not bool(result["halt"]), "v_m": float(result["v_m"]),
+        "res_injected": bool(result["res_injected"]),
+        "res_entity_match": bool(result["res_entity_match"]),
+        "res_id": result["res_id"], "res_candidate_id": result["res_candidate_id"],
+        "res_sim": float(result["res_sim"]), "res_fact": result["res_fact"],
+    }
+
+
+def _coupled_end_to_end_metrics(rows, cutoff):
+    valid = [row for row in rows if row["is_valid"]]
+    traps = [row for row in rows if not row["is_valid"]]
+    valid_kept = [
+        row for row in valid
+        if row["stage1_pass"] and row["s2_score"] is not None and row["s2_score"] >= cutoff
+    ]
+    trap_rejected = [
+        row for row in traps
+        if not row["stage1_pass"] or explicitly_rejects_premise(row["answer"])
+        or (row["s2_score"] is not None and row["s2_score"] < cutoff)
+    ]
+    submitted = list(valid_kept)
+    correct = sum(bool(row["answer_correct"]) for row in valid_kept)
+    for row in traps:
+        if row["stage1_pass"] and explicitly_rejects_premise(row["answer"]):
+            submitted.append(row)
+            correct += 1
+        elif row["stage1_pass"] and row["s2_score"] is not None and row["s2_score"] >= cutoff:
+            submitted.append(row)
+    return {
+        "valid_kept": len(valid_kept), "valid_total": len(valid),
+        "traps_rejected": len(trap_rejected), "traps_total": len(traps),
+        "correct_submitted": correct, "submitted": len(submitted),
+        "selective_accuracy": correct / len(submitted) if submitted else 0.0,
+    }
+
+
+def _coupled_outcome_label(row, cutoff):
+    if not row["stage1_pass"]:
+        return "stage1_halt"
+    if not row["is_valid"] and explicitly_rejects_premise(row["answer"]):
+        return "explicit_trap_rejection"
+    score = row.get("s2_score")
+    if score is None:
+        return "stage2_missing"
+    return "submit" if score >= cutoff else "stage2_halt"
+
+
+@torch.inference_mode()
+def run_m2_l3_coupled(
+    stage1_model_id="Qwen/Qwen2.5-1.5B-Instruct",
+    stage2_model_id="Qwen/Qwen2.5-1.5B-Instruct",
+    force_offline=True,
+    v_crit=-66.0,
+    dtype_name=None,
+    device_name="cpu",
+    stage1_cache_dir=None,
+    stage2_cache_dir=None,
+):
+    """Run v2 valid-rescue, RAG trap-stress, and purge/isolation cascades."""
+    _validate_v2_benchmark()
+    started = time.perf_counter()
+    stage1_cache_path = _m2_l2_stage1_cache_path(
+        v_crit, stage1_model_id, dtype_name, stage1_cache_dir, device_name, "v2"
+    )
+    baseline = _read_m2_l2_stage1_cache(
+        v_crit, model_id=stage1_model_id, dtype_name=dtype_name,
+        cache_dir=stage1_cache_dir, device_name=device_name, benchmark_version="v2",
+    )
+    if baseline is None:
+        raise FileNotFoundError(
+            f"v2 Stage-1 cache missing or stale at {stage1_cache_path}; create it with "
+            "--m2-l2-stage1-compare --benchmark-version v2 before coupled evaluation."
+        )
+
+    stage1_device, stage1_dtype = _resolve_device_dtype(device_name, dtype_name or ACTIVE_DTYPE)
+    stage2_device, stage2_dtype = _resolve_device_dtype(device_name, dtype_name or ACTIVE_DTYPE)
+    cache_dir = stage2_cache_dir or stage1_cache_dir or ".hrc_cache"
+    stage2_path, stage2_metadata = _m2_l2_stage2_cache_path(
+        baseline, stage2_model_id, _dtype_name(stage2_dtype), stage2_device.type,
+        True, cache_dir, benchmark_version="v2", stage2_mode="dual",
+    )
+    cached_scores = _read_m2_l2_stage2_cache(stage2_path, stage2_metadata)
+    baseline_candidates = _m2_l2_stage2_candidates(baseline)
+    baseline_scored = []
+    for row in baseline_candidates:
+        key = (row["split"], row["id"], row["query"])
+        score = cached_scores.get(key)
+        if score is None:
+            raise FileNotFoundError(
+                f"The v2 dual Stage-2 cache lacks baseline candidate {row['id']} at {stage2_path}; "
+                "run --m2-l2-asym --benchmark-version v2 --stage2-mode dual first."
+            )
+        baseline_scored.append({**row, "s_bal": float(score["s_bal"]), "s2_score": float(score["s_bal"])})
+    calibration_scores = [row for row in baseline_scored if row["split"] == "v2_cal"]
+    cutoff, rule, margin = _fit_v2_calibration_cutoff(calibration_scores, "s2_score")
+    print(
+        f"Coupled v2 uses frozen v2_cal cutoff {cutoff:+.6f} ({rule}; margin={margin:+.6f}).\n"
+        f"Stage-1 cache: {stage1_cache_path}\nStage-2 cache: {stage2_path}", flush=True,
+    )
+
+    engine = HRCLLMEngine(
+        stage1_model_id, force_offline=force_offline, dtype=stage1_dtype,
+        device=stage1_device.type,
+    )
+    yes_ids, no_ids = resolve_yes_no_token_ids(engine.tokenizer)
+    stage2_tokenizer = stage2_model = None
+
+    def stage2_score_for(row):
+        nonlocal stage2_model, stage2_tokenizer
+        key = (row["split"], row["id"], row["query"])
+        cached = cached_scores.get(key)
+        if cached is not None:
+            return float(cached["s_bal"])
+        if stage2_model is None:
+            stage2_tokenizer, loaded = load_hf_local_first(
+                stage2_model_id, force_offline=force_offline,
+                dtype=stage2_dtype, low_cpu_mem_usage=True,
+            )
+            stage2_model = loaded.to(stage2_device)
+            stage2_model.eval()
+        tic = time.perf_counter()
+        positive = _format_instruct_premise_prompt(stage2_tokenizer, row["query"], negate=False)
+        negative = _format_instruct_premise_prompt(stage2_tokenizer, row["query"], negate=True)
+        d_pos, _, _ = _stage2_yes_no_logits(stage2_model, stage2_tokenizer, positive, yes_ids, no_ids)
+        d_neg, _, _ = _stage2_yes_no_logits(stage2_model, stage2_tokenizer, negative, yes_ids, no_ids)
+        score = 0.5 * (d_pos - d_neg)
+        cached_scores[key] = {
+            "id": row["id"], "split": row["split"], "query": row["query"],
+            "is_valid": bool(row["is_valid"]), "d_pos": d_pos, "d_neg": d_neg,
+            "s_bal": score, "latency_s": time.perf_counter() - tic,
+        }
+        cache_records = list(cached_scores.values())
+        _write_m2_l2_stage2_cache(stage2_path, stage2_metadata, cache_records)
+        return score
+
+    def run_rows(specs, memory, suite):
+        results = []
+        for index, spec in enumerate(specs, start=1):
+            row = _coupled_stage1_row(engine, spec, memory, v_crit)
+            row["s2_score"] = stage2_score_for(row) if row["stage1_pass"] and (
+                row["is_valid"] or not explicitly_rejects_premise(row["answer"])
+            ) else None
+            results.append(row)
+            print(
+                f"  {suite} {index:02d}/{len(specs)} {row['id']} "
+                f"inject={row['res_injected']} slot={row['res_id'] or '-'} "
+                f"V_m={row['v_m']:.1f} {'PASS' if row['stage1_pass'] else 'HALT'} "
+                f"answer={row['answer'][:60]!r}", flush=True,
+            )
+        return results
+
+    def row_rejected(row):
+        if not row["stage1_pass"] or explicitly_rejects_premise(row["answer"]):
+            return True
+        return row["s2_score"] is not None and row["s2_score"] < cutoff
+
+    holdout_specs = [dict(row, split="v2_holdout") for row in V2_HOLDOUT_QUERIES]
+    valid_specs = [spec for spec in holdout_specs if spec["category"] != "false_premise"]
+    trap_specs = [spec for spec in holdout_specs if spec["category"] == "false_premise"]
+    baseline_by_id = {row["id"]: row for row in baseline if row["split"] == "v2_holdout"}
+
+    # Suite 1: memory contains ground-truth facts for only the valid items the
+    # unassisted model passed but answered incorrectly. Four correct passers are controls.
+    rescue_specs = [
+        spec for spec in valid_specs
+        if baseline_by_id[spec["id"]]["stage1_pass"] and baseline_by_id[spec["id"]]["answer_correct"] is False
+    ]
+    controls = [
+        spec for spec in valid_specs
+        if baseline_by_id[spec["id"]]["stage1_pass"] and baseline_by_id[spec["id"]]["answer_correct"] is True
+    ][:4]
+    rescue_entries = _v2_l3_seed_entries(rescue_specs, valid_facts_only=True)
+    rescue_memory = _build_v2_l3_memory(engine, rescue_entries, center_specs=holdout_specs)
+    print("\n=== SUITE 1: VALID MISCONCEPTION RESCUE ===", flush=True)
+    suite1_results = run_rows(holdout_specs, rescue_memory, "RESCUE")
+    valid_results = [row for row in suite1_results if row["is_valid"]]
+    valid_by_id = {row["id"]: row for row in valid_results}
+    rescued = sum(
+        valid_by_id[row["id"]]["res_injected"]
+        and valid_by_id[row["id"]]["answer_correct"] is True
+        for row in rescue_specs
+    )
+    preserved = sum(valid_by_id[row["id"]]["answer_correct"] is True for row in controls)
+    controls_passed = sum(
+        valid_by_id[row["id"]]["stage1_pass"] and valid_by_id[row["id"]]["answer_correct"] is True
+        for row in controls
+    )
+    active_metrics = _coupled_end_to_end_metrics(suite1_results, cutoff)
+    print(
+        f"Rescue {rescued}/{len(rescue_specs)} wrong-to-correct; "
+        f"controls correct={preserved}/{len(controls)} and cascade-kept={controls_passed}/{len(controls)}; "
+        f"active Layer-3 full-holdout selective accuracy="
+        f"{active_metrics['correct_submitted']}/{active_metrics['submitted']} "
+        f"({active_metrics['selective_accuracy']:.1%}); valid kept="
+        f"{active_metrics['valid_kept']}/{active_metrics['valid_total']}, traps rejected="
+        f"{active_metrics['traps_rejected']}/{active_metrics['traps_total']}.", flush=True,
+    )
+
+    # Suite 2: every false-premise entity receives a curated true-context memory.
+    trap_entries = _v2_l3_seed_entries(trap_specs)
+    trap_memory = _build_v2_l3_memory(engine, trap_entries, center_specs=holdout_specs)
+    print("\n=== SUITE 2: RAG-INDUCED FALSE-PREMISE SYCOPHANCY STRESS ===", flush=True)
+    trap_results = run_rows(trap_specs, trap_memory, "RAG-TRAP")
+    trap_rejected_count = sum(row_rejected(row) for row in trap_results)
+    trap_stage1_accepted = sum(row["stage1_pass"] and not explicitly_rejects_premise(row["answer"]) for row in trap_results)
+    trap_stage2_accepted = sum(
+        row["stage1_pass"] and not explicitly_rejects_premise(row["answer"])
+        and row["s2_score"] is not None and row["s2_score"] >= cutoff
+        for row in trap_results
+    )
+    baseline_trap_rejected = sum(
+        (not row["stage1_pass"]) or explicitly_rejects_premise(row.get("answer", ""))
+        or float(next((s["s2_score"] for s in baseline_scored if s["id"] == row["id"]), math.inf)) < cutoff
+        for row in baseline if row["split"] == "v2_holdout" and not row["is_valid"]
+    )
+    baseline_trap_s1_passers = sum(
+        row["stage1_pass"] and not explicitly_rejects_premise(row.get("answer", ""))
+        for row in baseline if row["split"] == "v2_holdout" and not row["is_valid"]
+    )
+    trap_memory_injections = sum(row["res_injected"] for row in trap_results)
+    print(
+        f"RAG trap rejection={trap_rejected_count}/{len(trap_specs)} vs cached baseline "
+        f"{baseline_trap_rejected}/{len(trap_specs)}; baseline Stage-1 unflagged passers="
+        f"{baseline_trap_s1_passers}; true-context injections={trap_memory_injections}/{len(trap_specs)}; "
+        f"stressed Stage-1 unflagged passers={trap_stage1_accepted}; "
+        f"Stage-2 unflagged accepts={trap_stage2_accepted}.", flush=True,
+    )
+
+    # Suite 3: matching trap queries may retrieve their own entity fact, but never
+    # a sibling's. Then remove all rescue slots and replay rescue queries.
+    print("\n=== SUITE 3: SIBLING ISOLATION AND PURGE REVOCATION ===", flush=True)
+    bleed = []
+    for spec in holdout_specs:
+        query_vec = engine.embed_texts([spec["q"]])[0]
+        retrieved = trap_memory.retrieve(query_vec, spec["q"])
+        if retrieved["injected"] and trap_memory.slots[retrieved["slot_id"]]["key_text"] != spec["q"]:
+            bleed.append((spec["id"], retrieved["slot_id"]))
+    print(f"Sibling/near-neighbor query injection bleed={len(bleed)}/{len(holdout_specs)}; examples={bleed[:5]}.", flush=True)
+    purge_started = time.perf_counter()
+    for entry in rescue_entries:
+        rescue_memory.exact_unlearn(entry["id"])
+    purge_ms = (time.perf_counter() - purge_started) * 1000.0
+    print(f"Purged {len(rescue_entries)} rescue memories in {purge_ms:.4f} ms.", flush=True)
+    purged_results = run_rows(rescue_specs, rescue_memory, "PURGED") if rescue_specs else []
+    forgotten_bleed = sum(
+        row["res_injected"] and row["res_id"] in {entry["id"] for entry in rescue_entries}
+        for row in purged_results
+    )
+    baseline_scored_by_id = {row["id"]: row for row in baseline_scored}
+    reversion = sum(
+        row["answer"] == baseline_by_id[row["id"]]["answer"]
+        and row["stage1_pass"] == baseline_by_id[row["id"]]["stage1_pass"]
+        and _coupled_outcome_label(
+            row, cutoff
+        ) == _coupled_outcome_label(
+            {
+                **baseline_by_id[row["id"]],
+                "s2_score": baseline_scored_by_id.get(row["id"], {}).get("s2_score"),
+            }, cutoff,
+        )
+        for row in purged_results
+    )
+    print(
+        f"Post-purge forgotten-memory bleed={forgotten_bleed}/{len(purged_results)}; "
+        f"exact cached answer+Stage-1 reversion={reversion}/{len(purged_results)}; "
+        f"index consistent={rescue_memory.index_is_consistent()}.", flush=True,
+    )
+
+    if stage2_model is not None:
+        del stage2_model, stage2_tokenizer
+    del engine
+    gc.collect()
+    print(f"--m2-l3-coupled runtime: {time.perf_counter() - started:.1f}s.", flush=True)
+
+
+def _m2_l3_coupled_wiring_self_test():
+    """Fast deterministic checks for cache-free Layer 3 seed/purge wiring."""
+    class SyntheticEmbedder:
+        def embed_texts_batched(self, texts, batch_size=64):
+            return self.embed_texts(texts)
+
+        def embed_texts(self, texts):
+            vectors = []
+            for text in texts:
+                seed = _stable_query_seed(text)
+                generator = torch.Generator().manual_seed(seed)
+                vectors.append(F.normalize(torch.randn(32, generator=generator), dim=0))
+            return torch.stack(vectors)
+
+    _validate_v2_benchmark()
+    specs = [
+        dict(V2_HOLDOUT_QUERIES[0], split="v2_holdout"),
+        dict(V2_HOLDOUT_QUERIES[25], split="v2_holdout"),
+    ]
+    all_traps = [row for row in V2_HOLDOUT_QUERIES if row["category"] == "false_premise"]
+    trap_entries = _v2_l3_seed_entries(all_traps)
+    if len(trap_entries) != 35 or {row["id"] for row in trap_entries} != {row["id"] for row in all_traps}:
+        raise AssertionError("True entity-context facts are not seeded for all 35 holdout traps.")
+    entries = _v2_l3_seed_entries(specs)
+    memory = _build_v2_l3_memory(SyntheticEmbedder(), entries, center_specs=specs, tau_inject=0.0)
+    before = memory.retrieve(SyntheticEmbedder().embed_texts([specs[0]["q"]])[0], specs[0]["q"])
+    if not before["injected"] or before["slot_id"] != specs[0]["id"]:
+        raise AssertionError("Synthetic entity-matched memory did not retrieve its own fact.")
+    if memory.slots[specs[0]["id"]]["fact"] != f"{specs[0]['entity']}: {specs[0]['gold_answers'][0]}." or not memory.slots[specs[1]["id"]]["fact"]:
+        raise AssertionError("Canonical valid facts or curated trap facts were not seeded.")
+    timer = time.perf_counter()
+    memory.exact_unlearn(specs[0]["id"])
+    purge_ms = (time.perf_counter() - timer) * 1000.0
+    after = memory.retrieve(SyntheticEmbedder().embed_texts([specs[0]["q"]])[0], specs[0]["q"])
+    if after["injected"] or specs[0]["id"] in memory.slots or not memory.index_is_consistent():
+        raise AssertionError("Synthetic purge failed to revoke the memory or clean its index.")
+    synthetic_stage1 = [{
+        "id": "synthetic", "split": "v2_holdout", "query": "synthetic query",
+        "is_valid": True, "stage1_pass": True,
+    }]
+    cache_row = {
+        "id": "synthetic", "split": "v2_holdout", "query": "synthetic query",
+        "is_valid": True, "d_pos": 0.25, "d_neg": -0.5,
+        "s_bal": 0.375, "latency_s": 0.001,
+    }
+    with tempfile.TemporaryDirectory() as temp_dir:
+        cache_path, metadata = _m2_l2_stage2_cache_path(
+            synthetic_stage1, "synthetic/model", "float32", "cpu", True,
+            temp_dir, benchmark_version="v2", stage2_mode="dual",
+        )
+        _write_m2_l2_stage2_cache(cache_path, metadata, [cache_row])
+        round_trip = _read_m2_l2_stage2_cache(cache_path, metadata)
+        if round_trip.get(("v2_holdout", "synthetic", "synthetic query")) != cache_row:
+            raise AssertionError("Synthetic Stage-2 cache round-trip failed.")
+    return {
+        "seeded": len(entries), "trap_facts": len(trap_entries),
+        "purge_ms": purge_ms, "revoked": True, "stage2_cache_round_trip": True,
+    }
+
+
 def run_m2_l2(v_crit: float = -66.0):
     """Benchmark three single-pass premise vetoes behind the existing V_m gate."""
     torch.manual_seed(42)
@@ -3829,6 +4278,7 @@ if __name__ == "__main__":
     run_mode.add_argument("--unlearn-audit", action="store_true", help="Run unseen paraphrase and indirect-query unlearning probes.")
     run_mode.add_argument("--baselines", action="store_true", help="Run Milestone 1 Step 4 baseline comparisons.")
     run_mode.add_argument("--m2-l3", action="store_true", help="Run Milestone 2 Layer 3 injection-floor and sparse/dense hybrid audit.")
+    run_mode.add_argument("--m2-l3-coupled", action="store_true", help="Run the v2 coupled Layer 2 + Layer 3 rescue, trap-stress, isolation, and purge cascade.")
     run_mode.add_argument("--m2-l3-slice-only", action="store_true", help="Re-run only the 16-query N=100 Tier 2B Layer 3 slice.")
     run_mode.add_argument("--m2-l2", action="store_true", help="Run the Milestone 2 Layer 2 single-pass premise-veto diagnostic.")
     run_mode.add_argument("--m2-l2-diag", action="store_true", help="Run the 0.5B dual-polarity and direct-recall diagnostic.")
@@ -3837,9 +4287,9 @@ if __name__ == "__main__":
     run_mode.add_argument("--m2-l2-stage1-compare", action="store_true", help="Run the locked Stage-1 split with another model using a model-specific cache.")
     run_mode.add_argument("--m2-l2-asym", action="store_true", help="Run a decoupled Stage-2 premise verifier on Stage-1 passers.")
     parser.add_argument("--offline", action="store_true", help="Force local-only Hugging Face model loading.")
-    parser.add_argument("--stage1-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for --m2-l2-stage1-compare.")
+    parser.add_argument("--stage1-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for Stage-1 comparison and --m2-l3-coupled.")
     parser.add_argument("--stage1-fp32", action="store_true", help="Override the selected --dtype with float32 for Stage 1.")
-    parser.add_argument("--stage2-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for --m2-l2-asym.")
+    parser.add_argument("--stage2-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="Model ID for Stage-2 cascade and --m2-l3-coupled.")
     parser.add_argument("--stage1-cache-model", default=MODEL_ID, help="Stage-1 model ID whose cached split --m2-l2-asym should read.")
     parser.add_argument(
         "--stage1-cache-dtype",
@@ -3877,6 +4327,16 @@ if __name__ == "__main__":
         run_baselines(part=args.part)
     elif args.m2_l3:
         run_m2_l3()
+    elif args.m2_l3_coupled:
+        run_m2_l3_coupled(
+            stage1_model_id=args.stage1_model,
+            stage2_model_id=args.stage2_model,
+            force_offline=args.offline,
+            dtype_name=_dtype_name(resolved_dtype),
+            device_name=resolved_device.type,
+            stage1_cache_dir=args.stage1_cache_dir,
+            stage2_cache_dir=args.stage2_cache_dir,
+        )
     elif args.m2_l3_slice_only:
         run_m2_l3_tier2b()
     elif args.m2_l2:

@@ -463,3 +463,48 @@ The cache fingerprints identify the exact Stage-1 split used by both Stage-2 run
 | Holdout (locked) | 17/27 | 9/11 | 16/16 | 7/7 | 9/9 (100.0%) | 1.000 (10 × 7 = 70 pairs) |
 
 These figures record GPU parity and the answer-graded Phase 1 backfill using the existing locked v1 questions. The 60 and 70 AUROC pair counts are comparisons among 23 and 17 distinct Stage-1 passers, respectively; the pairs are not independent observations.
+
+## v2 Stratified Scaling & Stage-2 Ablation Results (Colab T4, float16)
+
+The v2 suite contains 55 calibration questions and 60 holdout questions (115 total). The v2 split remains separate from the permanently frozen v1 queries. Runs used a Colab Tesla T4 with `device=cuda` and `dtype=torch.float16`.
+
+### Stage-1 scaling paradox
+
+| Generator | v2_cal trap passers | v2_holdout correct valid passed | v2_holdout trap passers |
+|---|---:|---:|---:|
+| Qwen2.5-1.5B | — | 9/25 | 5/35 (14.3%) |
+| Qwen2.5-3B | 14/30 traps (46.7%) | 16/25 | 12/35 (34.3%) |
+
+The larger generator improves valid recall while allowing more false-premise traps through Stage 1. This increases the value of a calibrated Stage-2 verifier: 3B passes 7 more holdout traps than 1.5B (12 versus 5), while also passing 7 more correct valid answers (16 versus 9).
+
+### Stage-2 scaling and ablations
+
+For `3B → 3B [dual]`, the frozen `v2_cal` cutoff retains 17/25 holdout valid items (17/18 Stage-1 valid passers), rejects 34/35 holdout traps (97.1%), and gives 22/25 (88.0%) answer-graded selective accuracy. Its Stage-2 AUROC is **0.956 [0.833, 1.000]** under question-level bootstrap resampling.
+
+- **Direct prompting is scale-brittle.** With the 3B verifier, direct mode inverts to 0.092–0.222 AUROC. Results with smaller verifiers vary by generator: 0.778–0.954 for the 0.5B verifier and 0.978–1.000 for the 1.5B verifier.
+- **Dual polarity is stable across scales.** Dual mode spans 0.800–1.000 AUROC over all six generator/verifier pairs. It peaks on the 3B verifier, which rejects 29/30 calibration traps for either generator.
+- **The positive-polarity ablation can help with smaller verifiers.** `single` (`d_pos` alone) scores 0.892 versus 0.846 for `dual` with a 1.5B generator and 0.5B verifier, and 0.933 versus 0.856 with a 3B generator and 1.5B verifier, where the negative-polarity signal is noisier.
+- **Remaining errors motivate Layer 3 coupling.** The `3B → 3B [dual]` holdout has three non-silent errors among 60 items: one trap leak and two confident factual errors on valid-premise questions. Stage 2 can reject false premises, but it does not verify the factual answer itself.
+
+The table reports all 18 frozen calibration and holdout runs. Confidence intervals resample distinct questions, not the pairwise comparisons used to calculate AUROC. Counterintuitive-truth intervals are question-level bootstrap intervals for valid retention.
+
+| Generator | Verifier | Mode | τ | Cal valid | Cal traps | Cal SelAcc | Holdout valid | Holdout traps | Holdout SelAcc | AUROC [95% CI] | Counterintuitive retention [95% CI] |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1.5B | 0.5B | dual | +0.438 | 15/25 | 25/30 | 9/20 (45.0%) | 12/25 | 32/35 | 8/15 (53.3%) | 0.846 [0.631, 0.985] | 0.300 [0.000, 0.600] |
+| 1.5B | 0.5B | single | -1.312 | 15/25 | 26/30 | 9/19 (47.4%) | 12/25 | 34/35 | 8/13 (61.5%) | 0.892 [0.662, 1.000] | 0.300 [0.000, 0.600] |
+| 1.5B | 0.5B | direct | -2.922 | 15/25 | 24/30 | 10/21 (47.6%) | 13/25 | 34/35 | 9/14 (64.3%) | 0.954 [0.815, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 1.5B | dual | -0.836 | 15/25 | 23/30 | 9/22 (40.9%) | 13/25 | 31/35 | 9/17 (52.9%) | 1.000 [1.000, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 1.5B | single | -9.375 | 15/25 | 23/30 | 9/22 (40.9%) | 13/25 | 32/35 | 9/16 (56.2%) | 1.000 [1.000, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 1.5B | direct | -5.516 | 15/25 | 26/30 | 9/19 (47.4%) | 13/25 | 34/35 | 9/14 (64.3%) | 1.000 [1.000, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 3B | dual | -7.141 | 15/25 | 29/30 | 10/16 (62.5%) | 13/25 | 35/35 | 9/13 (69.2%) | 1.000 [1.000, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 3B | single | -19.437 | 15/25 | 23/30 | 10/22 (45.5%) | 13/25 | 32/35 | 9/16 (56.2%) | 1.000 [1.000, 1.000] | 0.400 [0.100, 0.700] |
+| 1.5B | 3B | direct | -15.406 | 16/25 | 21/30 | 10/25 (40.0%) | 12/25 | 30/35 | 9/17 (52.9%) | 0.092 [0.000, 0.262] | 0.400 [0.100, 0.700] |
+| 3B | 0.5B | dual | +0.203 | 18/25 | 23/30 | 17/30 (56.7%) | 17/25 | 31/35 | 22/28 (78.6%) | 0.800 [0.567, 0.978] | 0.600 [0.300, 0.900] |
+| 3B | 0.5B | single | -1.953 | 18/25 | 24/30 | 17/29 (58.6%) | 18/25 | 32/35 | 23/28 (82.1%) | 0.833 [0.611, 0.989] | 0.700 [0.400, 1.000] |
+| 3B | 0.5B | direct | -2.844 | 18/25 | 23/30 | 17/30 (56.7%) | 17/25 | 33/35 | 22/26 (84.6%) | 0.778 [0.511, 0.978] | 0.600 [0.300, 0.900] |
+| 3B | 1.5B | dual | -1.187 | 18/25 | 23/30 | 16/30 (53.3%) | 18/25 | 30/35 | 23/30 (76.7%) | 0.856 [0.689, 1.000] | 0.700 [0.400, 1.000] |
+| 3B | 1.5B | single | -9.594 | 18/25 | 26/30 | 16/27 (59.3%) | 18/25 | 31/35 | 23/29 (79.3%) | 0.933 [0.800, 1.000] | 0.700 [0.400, 1.000] |
+| 3B | 1.5B | direct | -5.516 | 18/25 | 27/30 | 16/26 (61.5%) | 18/25 | 33/35 | 23/27 (85.2%) | 0.978 [0.900, 1.000] | 0.700 [0.400, 1.000] |
+| 3B | 3B | dual | -7.141 | 18/25 | 29/30 | 16/24 (66.7%) | 17/25 | 34/35 | 22/25 (88.0%) | 0.956 [0.833, 1.000] | 0.600 [0.300, 0.900] |
+| 3B | 3B | single | -17.578 | 18/25 | 26/30 | 16/27 (59.3%) | 17/25 | 34/35 | 22/25 (88.0%) | 0.967 [0.867, 1.000] | 0.600 [0.300, 0.900] |
+| 3B | 3B | direct | -15.406 | 19/25 | 21/30 | 17/33 (51.5%) | 17/25 | 30/35 | 22/29 (75.9%) | 0.222 [0.056, 0.411] | 0.700 [0.400, 1.000] |
