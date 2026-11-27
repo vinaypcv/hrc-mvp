@@ -508,3 +508,28 @@ The table reports all 18 frozen calibration and holdout runs. Confidence interva
 | 3B | 3B | dual | -7.141 | 18/25 | 29/30 | 16/24 (66.7%) | 17/25 | 34/35 | 22/25 (88.0%) | 0.956 [0.833, 1.000] | 0.600 [0.300, 0.900] |
 | 3B | 3B | single | -17.578 | 18/25 | 26/30 | 16/27 (59.3%) | 17/25 | 34/35 | 22/25 (88.0%) | 0.967 [0.867, 1.000] | 0.600 [0.300, 0.900] |
 | 3B | 3B | direct | -15.406 | 19/25 | 21/30 | 17/33 (51.5%) | 17/25 | 30/35 | 22/29 (75.9%) | 0.222 [0.056, 0.411] | 0.700 [0.400, 1.000] |
+
+## Phase 3: Coupled Layer 2 + Layer 3 End-to-End Results (v2_holdout, Colab T4, float16)
+
+The coupled architecture evaluated was `Query -> Layer 3 ResonantMemory / Entity Guard -> Stage 1 (V_m) -> Stage 2 (Dual-Polarity)`. Stage 2 used the frozen `v2_cal` cutoffs, with no holdout refitting: `3B -> 3B` used `tau = -7.140625`, margin `+0.015625`; `1.5B -> 1.5B` used `tau = -0.835935`, margin `+0.539060`. Both runs used Colab T4 float16 inference.
+
+### Model-pair summary
+
+| Generator -> verifier | Runtime | Misconception rescue | Control preservation | Active full-holdout selective accuracy | RAG trap rejection | Sibling bleed | Purge and reversion |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Qwen2.5-3B-Instruct -> Qwen2.5-3B-Instruct | 97.4 s | 2/2 (100%) | 4/4 preserved and cascade-kept | 22/25 (88.0%) -> **24/25 (96.0%)**; 17/25 valid kept, 34/35 traps rejected | 34/35 (97.1%) maintained; Stage-2 unflagged accepts: 1 | 0/60 | 2 memories purged in 0.0781 ms; 0/2 forgotten-memory bleed; 2/2 exact reversions; index consistent |
+| Qwen2.5-1.5B-Instruct -> Qwen2.5-1.5B-Instruct | 65.1 s | 4/4 (100%) | 4/4 preserved and cascade-kept | 9/17 (52.9%) -> **12/16 (75.0%)**; 12/25 valid kept, 31/35 traps rejected | 31/35 (88.6%) -> **32/35 (91.4%)**; Stage-2 unflagged accepts: 3 | 0/60 | 4 memories purged in 0.0940 ms; 0/4 forgotten-memory bleed; 4/4 exact reversions; index consistent |
+
+### Suite results
+
+**Suite 1 — Valid-Misconception Rescue.** For the 3B pair, seeding concise ground-truth facts for the two Stage-1-passed but incorrectly answered valid questions corrected both answers. All four correctly answered controls remained correct and were kept by the cascade. Active Layer 3 raised full-holdout answer-graded selective accuracy from 22/25 (88.0%) to 24/25 (96.0%), with 17/25 valid items kept and 34/35 traps rejected. For the 1.5B pair, all four identified wrong answers were rescued, and all four controls remained correct and cascade-kept. Selective accuracy rose from 9/17 (52.9%) to 12/16 (75.0%); the active cascade kept 12/25 valid items and rejected 31/35 traps.
+
+**Suite 2 — RAG-Induced False-Premise Sycophancy Stress.** Layer 3 injected true, topically overlapping entity context for all 35 holdout traps. With the 3B pair, Stage-1 unflagged trap passers rose from 5 to 8, adding three sycophantic Stage-1 leaks. Dual-polarity Stage 2 rejected all extra leaks: only one trap remained an unflagged accept, preserving the cached baseline of 34/35 (97.1%) end-to-end trap rejection. With the 1.5B pair, Stage-1 unflagged passers fell from 5 to 3; Stage-2 unflagged accepts were 3, and trap rejection improved from 31/35 (88.6%) to 32/35 (91.4%).
+
+**Suite 3 — Sibling Isolation and Purge Revocation.** Neither model pair showed cross-entity injection bleed in 60 sibling or near-neighbor checks. For 3B, purging the two rescue memories took 0.0781 ms; no forgotten-memory bleed appeared in two post-purge checks, both queries exactly reverted to their cached unassisted answers and Stage-1 outcomes, and the index remained consistent. For 1.5B, four memories were purged in 0.0940 ms; there was no bleed across four checks, all four queries exactly reverted, and the index remained consistent.
+
+### Architectural synthesis
+
+The three HRC layers address different failure modes. Layer 1's homeostatic precision and stability mechanisms regulate response confidence and consistency. Layer 2 combines `V_m` trajectory consistency with scale-stable dual-polarity premise auditing, catching unstable or false-premise answers while preserving valid responses according to the frozen calibration. Layer 3 adds entity-guarded resonant memory: relevant facts can repair factual misconceptions, entity isolation prevents memory from bleeding into neighboring entities, and revocation purges take less than a millisecond in these runs.
+
+The RAG stress result shows why the layers need to remain coupled. For the 3B pair, adding true entity context increased Stage-1 trap passers from 5 to 8, demonstrating a scale-dependent sycophancy effect even when retrieved facts themselves were true. The dual-polarity Stage 2 contained those additional leaks and held end-to-end trap rejection at 34/35. Layer 3 therefore improved factual answers in the rescue suite, while Layer 2 remained necessary to audit how the generator used context that could make a false premise more persuasive.
