@@ -1035,6 +1035,7 @@ class HRCLLMEngine:
             "halt": halt,
             "q_vec": q_vec,
             "res_sim": res_sim,
+            "res_fact": res_fact,
             "res_id": res_id,
             "res_candidate_id": res_candidate_id,
             "res_dense_sim": res_dense_sim,
@@ -3545,17 +3546,20 @@ def _coupled_stage1_row(engine, spec, memory, v_crit):
     result = engine.infer_with_vm(spec["q"], memory=memory, v_crit=v_crit)
     aliases = spec.get("gold_answers") or []
     is_valid = bool(aliases)
+    answer = result["answer"]
     return {
         "id": spec["id"], "split": "v2_holdout", "query": spec["q"],
         "entity": spec["entity"], "category": spec["category"],
         "trap_category": spec.get("trap_category"), "gold_answers": aliases,
-        "is_valid": is_valid, "answer": result["answer"],
-        "answer_correct": is_correct_answer(result["answer"], aliases) if is_valid else None,
+        "is_valid": is_valid, "answer": answer,
+        "answer_correct": is_correct_answer(answer, aliases) if is_valid else None,
         "stage1_pass": not bool(result["halt"]), "v_m": float(result["v_m"]),
-        "res_injected": bool(result["res_injected"]),
-        "res_entity_match": bool(result["res_entity_match"]),
-        "res_id": result["res_id"], "res_candidate_id": result["res_candidate_id"],
-        "res_sim": float(result["res_sim"]), "res_fact": result["res_fact"],
+        "res_injected": bool(result.get("res_injected", False)),
+        "res_entity_match": bool(result.get("res_entity_match", True)),
+        "res_id": result.get("res_id"),
+        "res_candidate_id": result.get("res_candidate_id", result.get("res_id")),
+        "res_sim": float(result.get("res_sim") or 0.0),
+        "res_fact": result.get("res_fact"),
     }
 
 
@@ -3827,7 +3831,9 @@ def run_m2_l3_coupled(
 
 
 def _m2_l3_coupled_wiring_self_test():
-    """Fast deterministic checks for cache-free Layer 3 seed/purge wiring."""
+    """Check real Layer 3 retrieval and infer_with_vm wiring without model weights."""
+    from types import SimpleNamespace
+
     class SyntheticEmbedder:
         def embed_texts_batched(self, texts, batch_size=64):
             return self.embed_texts(texts)
@@ -3839,6 +3845,36 @@ def _m2_l3_coupled_wiring_self_test():
                 generator = torch.Generator().manual_seed(seed)
                 vectors.append(F.normalize(torch.randn(32, generator=generator), dim=0))
             return torch.stack(vectors)
+
+    class StubBatch(dict):
+        def to(self, device):
+            return self
+
+    class StubTokenizer:
+        eos_token_id = 0
+
+        def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True):
+            return "\n".join(message["content"] for message in messages)
+
+        def __call__(self, prompt, return_tensors="pt", **kwargs):
+            return StubBatch(input_ids=torch.tensor([[3, 4]], dtype=torch.long))
+
+        def decode(self, token_ids, skip_special_tokens=True):
+            return "Paris"
+
+    class StubGenerator:
+        device = torch.device("cpu")
+
+        def generate(self, input_ids, do_sample=False, num_return_sequences=1, **kwargs):
+            continuation = torch.full(
+                (num_return_sequences if do_sample else 1, 1), 1,
+                dtype=torch.long, device=input_ids.device,
+            )
+            sequences = torch.cat((input_ids.expand(continuation.shape[0], -1), continuation), dim=1)
+            if do_sample:
+                return sequences
+            logits = torch.tensor([[0.0, 3.0, 1.0]], dtype=torch.float32)
+            return SimpleNamespace(sequences=sequences, scores=(logits,))
 
     _validate_v2_benchmark()
     specs = [
@@ -3862,6 +3898,46 @@ def _m2_l3_coupled_wiring_self_test():
     after = memory.retrieve(SyntheticEmbedder().embed_texts([specs[0]["q"]])[0], specs[0]["q"])
     if after["injected"] or specs[0]["id"] in memory.slots or not memory.index_is_consistent():
         raise AssertionError("Synthetic purge failed to revoke the memory or clean its index.")
+
+    # Exercise the repository's real HRCLLMEngine.infer_with_vm and
+    # Layer3ResonantMemory.retrieve path with deterministic generator stubs.
+    coupled_engine = HRCLLMEngine.__new__(HRCLLMEngine)
+    coupled_engine.model = StubGenerator()
+    coupled_engine.tokenizer = StubTokenizer()
+    coupled_engine.embed_texts = lambda texts: torch.stack([
+        torch.ones(32, dtype=torch.float32) for _ in texts
+    ])
+    query_vec = torch.zeros(32, dtype=torch.float32)
+    query_vec[0] = 1.0
+    real_memory = Layer3ResonantMemory(tau_res=0.0, tau_inject=0.0)
+    real_memory.consolidate(
+        "SELFTEST_PARIS", query_vec, "France's capital is Paris.", specs[0]["q"]
+    )
+    retrieval_result = real_memory.retrieve(query_vec, specs[0]["q"])
+    expected_retrieval_keys = {
+        "fact", "score", "slot_id", "dense", "sparse", "injected", "entity_match",
+    }
+    if not expected_retrieval_keys.issubset(retrieval_result):
+        raise AssertionError(f"Real Layer3ResonantMemory result keys changed: {sorted(retrieval_result)}")
+    infer_result = coupled_engine.infer_with_vm(
+        specs[0]["q"], memory=real_memory, v_crit=-66.0, query_vec=query_vec,
+    )
+    if not {"answer", "halt", "v_m", "res_injected", "res_entity_match", "res_fact"}.issubset(infer_result):
+        raise AssertionError(f"Real infer_with_vm result keys changed: {sorted(infer_result)}")
+    coupled_row = _coupled_stage1_row(coupled_engine, specs[0], real_memory, -66.0)
+    if not coupled_row["res_injected"] or coupled_row["res_fact"] != "France's capital is Paris.":
+        raise AssertionError("Real infer_with_vm did not expose the injected fact via coupled row mapping.")
+    no_memory_row = _coupled_stage1_row(coupled_engine, specs[0], None, -66.0)
+    if no_memory_row["res_injected"] or no_memory_row["res_fact"] is not None:
+        raise AssertionError("Optional memory result fields are not safe when no memory is injected.")
+
+    class MinimalNoMemoryEngine:
+        def infer_with_vm(self, question, memory=None, v_crit=-66.0):
+            return {"answer": "Paris", "halt": False, "v_m": -80.0}
+
+    minimal_row = _coupled_stage1_row(MinimalNoMemoryEngine(), specs[0], None, -66.0)
+    if minimal_row["res_injected"] or minimal_row["res_fact"] is not None:
+        raise AssertionError("Coupled row mapping requires optional retrieval keys to exist.")
     synthetic_stage1 = [{
         "id": "synthetic", "split": "v2_holdout", "query": "synthetic query",
         "is_valid": True, "stage1_pass": True,
@@ -3883,6 +3959,9 @@ def _m2_l3_coupled_wiring_self_test():
     return {
         "seeded": len(entries), "trap_facts": len(trap_entries),
         "purge_ms": purge_ms, "revoked": True, "stage2_cache_round_trip": True,
+        "memory_retrieve_keys": sorted(retrieval_result.keys()),
+        "real_infer_with_vm_keys": sorted(infer_result.keys()),
+        "coupled_mapping_injected_fact": True, "optional_memory_fields_safe": True,
     }
 
 
