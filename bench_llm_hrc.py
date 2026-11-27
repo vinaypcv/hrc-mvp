@@ -875,7 +875,9 @@ class HRCLLMEngine:
                 print(f"  Embedding batch {batch_index}/{total_batches}", flush=True)
         return torch.cat(chunks, dim=0) if chunks else torch.empty((0, 0))
 
-    def _build_prompt(self, question: str, resonant_fact: str = None) -> str:
+    def _build_prompt(self, question: str, resonant_fact: str = None, style: str = "validated-v1") -> str:
+        if style != "validated-v1":
+            raise ValueError(f"Unsupported Stage-1 prompt style: {style}")
         sys_msg = (
             "Answer the question directly in 1 to 5 words only. "
             "Do not explain. Always give your single best concrete factual answer."
@@ -895,6 +897,8 @@ class HRCLLMEngine:
         v_crit: float = -66.0,
         query_vec: torch.Tensor = None,
         compute_p_true: bool = False,
+        max_new_tokens: int = 14,
+        prompt_style: str = "validated-v1",
     ):
         # Step A: Query Layer 3 Resonant Episodic Memory using LLM's own geometry
         q_vec = query_vec if query_vec is not None else self.embed_texts([question])[0]
@@ -911,14 +915,14 @@ class HRCLLMEngine:
             res_entity_match = retrieved["entity_match"]
             res_id = res_candidate_id if res_injected else None
 
-        prompt_text = self._build_prompt(question, resonant_fact=res_fact)
+        prompt_text = self._build_prompt(question, resonant_fact=res_fact, style=prompt_style)
         enc = self.tokenizer(prompt_text, return_tensors="pt").to(self.model.device)
         in_len = enc["input_ids"].shape[1]
 
         # Step B: Canonical Greedy Trajectory (extracts answer + token entropy + logit margin)
         greedy_out = self.model.generate(
             **enc,
-            max_new_tokens=14,
+            max_new_tokens=max_new_tokens,
             do_sample=False,
             pad_token_id=self.tokenizer.eos_token_id,
             return_dict_in_generate=True,
@@ -960,7 +964,7 @@ class HRCLLMEngine:
             try:
                 samp_out = self.model.generate(
                     **enc,
-                    max_new_tokens=14,
+                    max_new_tokens=max_new_tokens,
                     do_sample=True,
                     temperature=0.85,
                     top_p=0.92,
@@ -2958,7 +2962,11 @@ def _print_frozen_cascade_summary(stage1_results: list, scored: list, score_key:
         )
 
 
-def _fit_v2_calibration_cutoff(calibration_scored: list, score_key: str = "s2_score"):
+def _fit_v2_calibration_cutoff(
+    calibration_scored: list,
+    score_key: str = "s2_score",
+    max_valid_halts: int = 1,
+):
     """Pre-registered v2 rule: maximize trap halts while losing at most one valid."""
     valid_scores = [float(row[score_key]) for row in calibration_scored if row["is_valid"]]
     trap_scores = [float(row[score_key]) for row in calibration_scored if not row["is_valid"]]
@@ -2969,7 +2977,7 @@ def _fit_v2_calibration_cutoff(calibration_scored: list, score_key: str = "s2_sc
     best = None
     for cutoff in sorted(thresholds):
         halted_valid = sum(score < cutoff for score in valid_scores)
-        if halted_valid > 1:
+        if halted_valid > max_valid_halts:
             continue
         halted_traps = sum(score < cutoff for score in trap_scores)
         retained_valid = [score for score in valid_scores if score >= cutoff]

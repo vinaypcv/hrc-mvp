@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hrc-control"
+version = "0.3.0"
+description = "Homeostatic Resonant Control pipeline with V_m, premise auditing, and guarded memory"
+readme = "BENCHMARK_FINDINGS.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+bench = [
+    "datasets>=2.0",
+    "scikit-learn>=1.2",
+    "matplotlib>=3.7",
+]
+
+[project.scripts]
+hrc = "hrc.cli:main"
+
+[tool.setuptools]
+packages = ["hrc"]
+py-modules = ["bench_llm_hrc", "layer3_entity_guard"]
