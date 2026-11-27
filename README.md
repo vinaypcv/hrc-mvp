@@ -6,7 +6,7 @@
   <img alt="Python 3.10 or newer" src="https://img.shields.io/badge/Python-%3E%3D3.10-blue">
   <img alt="Benchmark: FalseQA n=200" src="https://img.shields.io/badge/Benchmark-FalseQA%20n%3D200-7b61ff">
   <img alt="Calibration: order_k target FPR at most 0.05" src="https://img.shields.io/badge/Calibration-order__k%20target%20FPR%20%E2%89%A4%200.05-00897b">
-  <img alt="License: unspecified" src="https://img.shields.io/badge/License-unspecified-lightgrey">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue"></a>
 </p>
 
 <p align="center">
@@ -137,4 +137,4 @@ python -c "import glob,json; [(lambda d: print(d['model'], d['discrimination'], 
 
 ## License
 
-No license is specified in this repository. Check with the author before reuse.
+This project is licensed under the [MIT License](LICENSE).
