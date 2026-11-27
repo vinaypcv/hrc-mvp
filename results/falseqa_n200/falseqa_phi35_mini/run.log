@@ -1,0 +1,276 @@
+[1/2] Loading microsoft/Phi-3.5-mini-instruct on cuda...
+Local cache miss/incomplete for microsoft/Phi-3.5-mini-instruct; falling back to Hugging Face Hub.
+[transformers] This model config has set a `rope_parameters['original_max_position_embeddings']` field, to be used together with `max_position_embeddings` to determine a scaling factor. Please set the `factor` field of `rope_parameters`with this ratio instead -- we recommend the use of this field over `original_max_position_embeddings`, as it is compatible with most model architectures.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [00:39<00:39, 39.19s/it]Fetching 2 files: 100%|██████████| 2/2 [00:39<00:00, 19.60s/it]
+Loading weights:   0%|          | 0/195 [00:00<?, ?it/s]Loading weights:   1%|          | 1/195 [00:00<02:50,  1.14it/s]Loading weights:   1%|          | 2/195 [00:01<02:21,  1.37it/s]Loading weights:   2%|▏         | 4/195 [00:01<00:59,  3.22it/s]Loading weights:   3%|▎         | 5/195 [00:01<00:47,  4.03it/s]Loading weights:   5%|▌         | 10/195 [00:01<00:17, 10.31it/s]Loading weights:   6%|▌         | 12/195 [00:01<00:15, 11.84it/s]Loading weights:   8%|▊         | 16/195 [00:02<00:10, 16.49it/s]Loading weights:  10%|█         | 20/195 [00:02<00:08, 19.79it/s]Loading weights:  12%|█▏        | 23/195 [00:02<00:08, 21.04it/s]Loading weights:  14%|█▍        | 28/195 [00:02<00:06, 27.63it/s]Loading weights:  16%|█▋        | 32/195 [00:02<00:05, 28.00it/s]Loading weights:  18%|█▊        | 36/195 [00:02<00:05, 29.29it/s]Loading weights:  21%|██        | 41/195 [00:02<00:05, 28.88it/s]Loading weights:  24%|██▍       | 47/195 [00:03<00:04, 30.62it/s]Loading weights:  27%|██▋       | 53/195 [00:03<00:04, 31.52it/s]Loading weights:  30%|███       | 59/195 [00:03<00:04, 32.12it/s]Loading weights:  33%|███▎      | 64/195 [00:03<00:03, 34.71it/s]Loading weights:  35%|███▍      | 68/195 [00:03<00:04, 30.16it/s]Loading weights:  37%|███▋      | 72/195 [00:03<00:04, 28.36it/s]Loading weights:  39%|███▉      | 76/195 [00:04<00:04, 28.90it/s]Loading weights:  41%|████      | 79/195 [00:04<00:04, 27.92it/s]Loading weights:  42%|████▏     | 82/195 [00:04<00:04, 27.36it/s]Loading weights:  44%|████▎     | 85/195 [00:04<00:04, 26.49it/s]Loading weights:  45%|████▌     | 88/195 [00:04<00:04, 26.28it/s]Loading weights:  47%|████▋     | 91/195 [00:04<00:04, 25.65it/s]Loading weights:  48%|████▊     | 94/195 [00:04<00:03, 25.27it/s]Loading weights:  50%|████▉     | 97/195 [00:04<00:04, 24.39it/s]Loading weights:  51%|█████▏    | 100/195 [00:05<00:03, 24.24it/s]Loading weights:  53%|█████▎    | 103/195 [00:05<00:03, 24.90it/s]Loading weights:  55%|█████▍    | 107/195 [00:05<00:03, 24.24it/s]Loading weights:  57%|█████▋    | 112/195 [00:05<00:02, 30.18it/s]Loading weights:  59%|█████▉    | 116/195 [00:05<00:02, 29.23it/s]Loading weights:  62%|██████▏   | 120/195 [00:05<00:02, 30.11it/s]Loading weights:  64%|██████▍   | 125/195 [00:05<00:02, 29.65it/s]Loading weights:  67%|██████▋   | 130/195 [00:06<00:02, 26.16it/s]Loading weights:  68%|██████▊   | 133/195 [00:06<00:03, 17.60it/s]Loading weights:  70%|██████▉   | 136/195 [00:06<00:03, 15.88it/s]Loading weights:  71%|███████   | 138/195 [00:07<00:04, 12.24it/s]Loading weights:  72%|███████▏  | 140/195 [00:07<00:04, 11.59it/s]Loading weights:  73%|███████▎  | 142/195 [00:07<00:04, 12.22it/s]Loading weights:  74%|███████▍  | 144/195 [00:07<00:04, 10.27it/s]Loading weights:  75%|███████▍  | 146/195 [00:07<00:05,  9.62it/s]Loading weights:  76%|███████▌  | 148/195 [00:08<00:04, 10.15it/s]Loading weights:  77%|███████▋  | 150/195 [00:08<00:05,  8.73it/s]Loading weights:  78%|███████▊  | 152/195 [00:08<00:05,  8.16it/s]Loading weights:  79%|███████▉  | 154/195 [00:08<00:04,  9.32it/s]Loading weights:  80%|████████  | 156/195 [00:08<00:03, 10.68it/s]Loading weights:  82%|████████▏ | 160/195 [00:09<00:02, 14.92it/s]Loading weights:  83%|████████▎ | 162/195 [00:09<00:02, 15.46it/s]Loading weights:  85%|████████▌ | 166/195 [00:09<00:01, 18.88it/s]Loading weights:  87%|████████▋ | 169/195 [00:09<00:01, 20.13it/s]Loading weights:  88%|████████▊ | 172/195 [00:09<00:01, 21.62it/s]Loading weights:  90%|████████▉ | 175/195 [00:09<00:00, 22.52it/s]Loading weights:  91%|█████████▏| 178/195 [00:09<00:00, 23.49it/s]Loading weights:  93%|█████████▎| 181/195 [00:09<00:00, 23.70it/s]Loading weights:  95%|█████████▍| 185/195 [00:10<00:00, 22.97it/s]Loading weights:  98%|█████████▊| 191/195 [00:10<00:00, 26.73it/s]Loading weights: 100%|██████████| 195/195 [00:10<00:00, 18.84it/s]
+[2/2] HRC Layer 2 (V_m) + Layer 3 (Resonant Memory) initialized.
+[cal] 1/60 601: s_dual=+10.7656 ACCEPT
+[cal] 2/60 881: s_dual=+9.0000 HALT_STAGE1
+[cal] 3/60 16: s_dual=-10.5781 HALT_STAGE1
+[cal] 4/60 216: s_dual=-10.4375 HALT_STAGE1
+[cal] 5/60 57: s_dual=-1.6094 ACCEPT
+[cal] 6/60 52: s_dual=-24.6250 HALT_STAGE1
+[cal] 7/60 101: s_dual=-5.9062 HALT_STAGE1
+[cal] 8/60 540: s_dual=+3.5312 HALT_STAGE1
+[cal] 9/60 720: s_dual=+0.6094 HALT_STAGE1
+[cal] 10/60 456: s_dual=-14.6875 HALT_STAGE1
+[cal] 11/60 379: s_dual=-10.5156 HALT_STAGE1
+[cal] 12/60 327: s_dual=-6.6875 HALT_STAGE1
+[cal] 13/60 332: s_dual=-19.0000 HALT_STAGE1
+[cal] 14/60 903: s_dual=+17.8438 ACCEPT
+[cal] 15/60 513: s_dual=+14.0000 ACCEPT
+[cal] 16/60 633: s_dual=-11.2500 HALT_STAGE1
+[cal] 17/60 538: s_dual=+5.5625 HALT_STAGE1
+[cal] 18/60 543: s_dual=+5.6094 HALT_STAGE1
+[cal] 19/60 674: s_dual=-7.2813 ACCEPT
+[cal] 20/60 359: s_dual=-14.2344 HALT_STAGE1
+[cal] 21/60 904: s_dual=+1.2188 ACCEPT
+[cal] 22/60 879: s_dual=+9.0000 HALT_STAGE1
+[cal] 23/60 707: s_dual=+11.0156 HALT_STAGE1
+[cal] 24/60 366: s_dual=-9.0781 HALT_STAGE1
+[cal] 25/60 111: s_dual=-10.2656 HALT_STAGE1
+[cal] 26/60 663: s_dual=-19.3125 HALT_STAGE1
+[cal] 27/60 119: s_dual=-7.0938 HALT_STAGE1
+[cal] 28/60 603: s_dual=-3.4531 HALT_STAGE1
+[cal] 29/60 792: s_dual=+10.8438 HALT_STAGE1
+[cal] 30/60 377: s_dual=-18.8281 HALT_STAGE1
+[cal] 31/60 258: s_dual=-12.5625 HALT_STAGE1
+[cal] 32/60 44: s_dual=-17.5938 HALT_STAGE1
+[cal] 33/60 308: s_dual=-21.0156 HALT_STAGE1
+[cal] 34/60 667: s_dual=-5.1250 ACCEPT
+[cal] 35/60 346: s_dual=-7.6562 HALT_STAGE1
+[cal] 36/60 685: s_dual=+0.9375 ACCEPT
+[cal] 37/60 864: s_dual=-5.3125 HALT_STAGE1
+[cal] 38/60 15: s_dual=-1.7344 HALT_STAGE1
+[cal] 39/60 626: s_dual=+3.8750 HALT_STAGE1
+[cal] 40/60 114: s_dual=+4.7344 ACCEPT
+[cal] 41/60 570: s_dual=+15.2188 HALT_STAGE1
+[cal] 42/60 800: s_dual=+17.6406 HALT_STAGE1
+[cal] 43/60 924: s_dual=-0.9688 ACCEPT
+[cal] 44/60 302: s_dual=-14.4219 HALT_STAGE1
+[cal] 45/60 665: s_dual=-4.7656 HALT_STAGE1
+[cal] 46/60 12: s_dual=-9.4375 ACCEPT
+[cal] 47/60 140: s_dual=-9.2656 HALT_STAGE1
+[cal] 48/60 981: s_dual=+8.9062 ACCEPT
+[cal] 49/60 279: s_dual=-12.1250 HALT_STAGE1
+[cal] 50/60 494: s_dual=+11.7812 ACCEPT
+[cal] 51/60 13: s_dual=-6.9688 HALT_STAGE1
+[cal] 52/60 572: s_dual=+14.5781 ACCEPT
+[cal] 53/60 848: s_dual=-6.6094 HALT_STAGE1
+[cal] 54/60 47: s_dual=-1.8438 HALT_STAGE1
+[cal] 55/60 936: s_dual=+6.3438 ACCEPT
+[cal] 56/60 125: s_dual=-8.6875 HALT_STAGE1
+[cal] 57/60 287: s_dual=-1.8438 ACCEPT
+[cal] 58/60 71: s_dual=-11.7188 ACCEPT
+[cal] 59/60 905: s_dual=+19.8906 ACCEPT
+[cal] 60/60 214: s_dual=-21.1250 HALT_STAGE1
+[eval] 1/200 396: s_dual=-2.8281 HALT_STAGE1
+[eval] 2/200 776: s_dual=+9.3438 HALT_STAGE1
+[eval] 3/200 116: s_dual=-10.7656 HALT_STAGE1
+[eval] 4/200 108: s_dual=+0.6250 ACCEPT
+[eval] 5/200 1323: s_dual=+14.5156 ACCEPT
+[eval] 6/200 1310: s_dual=-4.2969 ACCEPT
+[eval] 7/200 378: s_dual=-17.7969 HALT_STAGE1
+[eval] 8/200 50: s_dual=-16.0781 HALT_STAGE1
+[eval] 9/200 644: s_dual=+12.3750 ACCEPT
+[eval] 10/200 1081: s_dual=+20.1719 ACCEPT
+[eval] 11/200 191: s_dual=-2.4062 HALT_STAGE1
+[eval] 12/200 534: s_dual=-8.5938 ACCEPT
+[eval] 13/200 121: s_dual=-1.1875 HALT_STAGE1
+[eval] 14/200 1079: s_dual=+10.7969 HALT_STAGE1
+[eval] 15/200 507: s_dual=+2.8594 ACCEPT
+[eval] 16/200 65: s_dual=-7.3281 HALT_STAGE1
+[eval] 17/200 801: s_dual=-5.2188 ACCEPT
+[eval] 18/200 935: s_dual=-4.1250 HALT_STAGE1
+[eval] 19/200 646: s_dual=-16.3594 HALT_STAGE1
+[eval] 20/200 952: s_dual=+11.5312 HALT_STAGE1
+[eval] 21/200 953: s_dual=+19.6719 HALT_STAGE1
+[eval] 22/200 510: s_dual=-3.7969 HALT_STAGE1
+[eval] 23/200 1204: s_dual=+16.5781 HALT_STAGE1
+[eval] 24/200 779: s_dual=-9.5938 HALT_STAGE1
+[eval] 25/200 314: s_dual=+5.4688 ACCEPT
+[eval] 26/200 1210: s_dual=+4.5625 HALT_STAGE1
+[eval] 27/200 814: s_dual=+7.7188 ACCEPT
+[eval] 28/200 1240: s_dual=+2.5312 HALT_STAGE1
+[eval] 29/200 611: s_dual=-19.6875 HALT_STAGE1
+[eval] 30/200 588: s_dual=-13.5000 HALT_STAGE1
+[eval] 31/200 303: s_dual=-20.1875 HALT_STAGE1
+[eval] 32/200 832: s_dual=+8.1250 ACCEPT
+[eval] 33/200 1122: s_dual=+6.7031 ACCEPT
+[eval] 34/200 38: s_dual=+3.5625 HALT_STAGE1
+[eval] 35/200 1266: s_dual=+14.8750 HALT_STAGE1
+[eval] 36/200 1034: s_dual=-10.3281 HALT_STAGE1
+[eval] 37/200 1202: s_dual=-8.9688 ACCEPT
+[eval] 38/200 702: s_dual=-7.4688 HALT_STAGE1
+[eval] 39/200 740: s_dual=-5.5781 HALT_STAGE1
+[eval] 40/200 545: s_dual=-0.7656 HALT_STAGE1
+[eval] 41/200 150: s_dual=-20.5781 HALT_STAGE1
+[eval] 42/200 381: s_dual=-21.2031 HALT_STAGE1
+[eval] 43/200 1007: s_dual=+3.5781 HALT_STAGE1
+[eval] 44/200 96: s_dual=+3.4844 ACCEPT
+[eval] 45/200 721: s_dual=+5.5938 ACCEPT
+[eval] 46/200 473: s_dual=-15.7969 HALT_STAGE1
+[eval] 47/200 1146: s_dual=+12.4375 ACCEPT
+[eval] 48/200 669: s_dual=-21.9844 HALT_STAGE1
+[eval] 49/200 613: s_dual=-9.7188 HALT_STAGE1
+[eval] 50/200 1154: s_dual=-4.9844 HALT_STAGE1
+[eval] 51/200 869: s_dual=-9.9375 HALT_STAGE1
+[eval] 52/200 994: s_dual=+18.9375 HALT_STAGE1
+[eval] 53/200 62: s_dual=+0.9062 HALT_STAGE1
+[eval] 54/200 548: s_dual=-12.8125 HALT_STAGE1
+[eval] 55/200 506: s_dual=-1.3281 HALT_STAGE1
+[eval] 56/200 59: s_dual=-11.5469 HALT_STAGE1
+[eval] 57/200 1314: s_dual=-3.9375 HALT_STAGE1
+[eval] 58/200 845: s_dual=+9.7031 HALT_STAGE1
+[eval] 59/200 1345: s_dual=+5.0625 HALT_STAGE1
+[eval] 60/200 98: s_dual=-9.3281 ACCEPT
+[eval] 61/200 147: s_dual=-15.6562 HALT_STAGE1
+[eval] 62/200 956: s_dual=+2.7969 HALT_STAGE1
+[eval] 63/200 109: s_dual=-5.0312 ACCEPT
+[eval] 64/200 1173: s_dual=+6.1875 HALT_STAGE1
+[eval] 65/200 19: s_dual=-21.5938 HALT_STAGE1
+[eval] 66/200 39: s_dual=+6.6719 HALT_STAGE1
+[eval] 67/200 281: s_dual=-8.2344 HALT_STAGE1
+[eval] 68/200 1200: s_dual=+2.5156 HALT_STAGE1
+[eval] 69/200 1177: s_dual=-5.7656 ACCEPT
+[eval] 70/200 979: s_dual=+4.7500 HALT_STAGE1
+[eval] 71/200 1040: s_dual=-6.1562 ACCEPT
+[eval] 72/200 1141: s_dual=-1.4531 HALT_STAGE1
+[eval] 73/200 526: s_dual=-17.8281 HALT_STAGE1
+[eval] 74/200 449: s_dual=-23.7656 ACCEPT
+[eval] 75/200 164: s_dual=-11.5469 HALT_STAGE1
+[eval] 76/200 88: s_dual=-10.0469 HALT_STAGE1
+[eval] 77/200 385: s_dual=-8.5469 HALT_STAGE1
+[eval] 78/200 623: s_dual=-25.1719 HALT_STAGE1
+[eval] 79/200 1156: s_dual=+10.9844 HALT_STAGE1
+[eval] 80/200 51: s_dual=-6.6094 HALT_STAGE1
+[eval] 81/200 292: s_dual=-18.6875 HALT_STAGE1
+[eval] 82/200 1035: s_dual=+12.6719 ACCEPT
+[eval] 83/200 565: s_dual=-8.6406 HALT_STAGE1
+[eval] 84/200 1245: s_dual=+6.7969 ACCEPT
+[eval] 85/200 304: s_dual=-1.6406 HALT_STAGE1
+[eval] 86/200 170: s_dual=-11.7031 HALT_STAGE1
+[eval] 87/200 130: s_dual=-27.7031 HALT_STAGE1
+[eval] 88/200 541: s_dual=-7.4844 ACCEPT
+[eval] 89/200 627: s_dual=-7.9844 HALT_STAGE1
+[eval] 90/200 1023: s_dual=+18.1875 ACCEPT
+[eval] 91/200 842: s_dual=+9.5938 HALT_STAGE1
+[eval] 92/200 806: s_dual=+15.9531 HALT_STAGE1
+[eval] 93/200 190: s_dual=-4.7188 ACCEPT
+[eval] 94/200 926: s_dual=-7.1875 ACCEPT
+[eval] 95/200 370: s_dual=-4.9531 HALT_STAGE1
+[eval] 96/200 180: s_dual=-16.3125 HALT_STAGE1
+[eval] 97/200 917: s_dual=+10.3438 ACCEPT
+[eval] 98/200 1276: s_dual=+13.5938 HALT_STAGE1
+[eval] 99/200 345: s_dual=+0.6875 ACCEPT
+[eval] 100/200 1237: s_dual=-2.2500 HALT_STAGE1
+[eval] 101/200 1350: s_dual=+14.7969 ACCEPT
+[eval] 102/200 338: s_dual=-8.7031 ACCEPT
+[eval] 103/200 1101: s_dual=+4.3125 ACCEPT
+[eval] 104/200 444: s_dual=-13.1875 HALT_STAGE1
+[eval] 105/200 954: s_dual=+14.3750 ACCEPT
+[eval] 106/200 1363: s_dual=+15.3438 HALT_STAGE1
+[eval] 107/200 785: s_dual=+1.1875 ACCEPT
+[eval] 108/200 1112: s_dual=+15.7812 ACCEPT
+[eval] 109/200 590: s_dual=-13.5781 HALT_STAGE1
+[eval] 110/200 782: s_dual=+2.3750 ACCEPT
+[eval] 111/200 518: s_dual=-1.5938 HALT_STAGE1
+[eval] 112/200 384: s_dual=-12.3281 HALT_STAGE1
+[eval] 113/200 618: s_dual=-12.8125 HALT_STAGE1
+[eval] 114/200 105: s_dual=-25.4062 HALT_STAGE1
+[eval] 115/200 605: s_dual=-5.5469 HALT_STAGE1
+[eval] 116/200 1105: s_dual=+2.3750 ACCEPT
+[eval] 117/200 908: s_dual=-5.8438 ACCEPT
+[eval] 118/200 157: s_dual=-14.8125 HALT_STAGE1
+[eval] 119/200 1022: s_dual=-1.9062 ACCEPT
+[eval] 120/200 824: s_dual=+3.0000 ACCEPT
+[eval] 121/200 911: s_dual=+13.4688 ACCEPT
+[eval] 122/200 274: s_dual=-8.5781 HALT_STAGE1
+[eval] 123/200 749: s_dual=+15.8281 HALT_STAGE1
+[eval] 124/200 820: s_dual=+10.2500 ACCEPT
+[eval] 125/200 877: s_dual=-1.6406 ACCEPT
+[eval] 126/200 453: s_dual=-3.2188 ACCEPT
+[eval] 127/200 1238: s_dual=-5.3281 HALT_STAGE1
+[eval] 128/200 1087: s_dual=-7.1250 ACCEPT
+[eval] 129/200 961: s_dual=+15.3281 HALT_STAGE1
+[eval] 130/200 731: s_dual=+10.9844 HALT_STAGE1
+[eval] 131/200 278: s_dual=-24.5000 HALT_STAGE1
+[eval] 132/200 1339: s_dual=+3.5312 ACCEPT
+[eval] 133/200 714: s_dual=-9.9688 HALT_STAGE1
+[eval] 134/200 442: s_dual=+11.7031 HALT_STAGE1
+[eval] 135/200 42: s_dual=+16.6875 ACCEPT
+[eval] 136/200 327: s_dual=-9.7969 HALT_STAGE1
+[eval] 137/200 1180: s_dual=+10.4688 ACCEPT
+[eval] 138/200 424: s_dual=-18.3281 HALT_STAGE1
+[eval] 139/200 17: s_dual=-17.3125 HALT_STAGE1
+[eval] 140/200 78: s_dual=+16.2812 ACCEPT
+[eval] 141/200 892: s_dual=+6.6875 HALT_STAGE1
+[eval] 142/200 82: s_dual=-8.0781 HALT_STAGE1
+[eval] 143/200 468: s_dual=-9.2031 HALT_STAGE1
+[eval] 144/200 366: s_dual=-15.5000 HALT_STAGE1
+[eval] 145/200 587: s_dual=-9.3594 HALT_STAGE1
+[eval] 146/200 1287: s_dual=-9.1094 HALT_STAGE1
+[eval] 147/200 678: s_dual=-19.7188 HALT_STAGE1
+[eval] 148/200 681: s_dual=-9.4062 ACCEPT
+[eval] 149/200 664: s_dual=+9.0625 ACCEPT
+[eval] 150/200 111: s_dual=-20.0469 HALT_STAGE1
+[eval] 151/200 2: s_dual=-7.0312 HALT_STAGE1
+[eval] 152/200 662: s_dual=-20.3438 HALT_STAGE1
+[eval] 153/200 131: s_dual=-8.9375 ACCEPT
+[eval] 154/200 186: s_dual=-14.0625 HALT_STAGE1
+[eval] 155/200 914: s_dual=+18.9062 HALT_STAGE1
+[eval] 156/200 72: s_dual=-13.3594 HALT_STAGE1
+[eval] 157/200 1270: s_dual=+10.0156 ACCEPT
+[eval] 158/200 1094: s_dual=+21.0469 ACCEPT
+[eval] 159/200 434: s_dual=-16.6406 HALT_STAGE1
+[eval] 160/200 560: s_dual=-4.5938 HALT_STAGE1
+[eval] 161/200 484: s_dual=-8.7656 HALT_STAGE1
+[eval] 162/200 898: s_dual=+19.3906 ACCEPT
+[eval] 163/200 1042: s_dual=+17.3125 ACCEPT
+[eval] 164/200 840: s_dual=+7.3125 HALT_STAGE1
+[eval] 165/200 169: s_dual=-14.9531 HALT_STAGE1
+[eval] 166/200 376: s_dual=+4.2031 ACCEPT
+[eval] 167/200 639: s_dual=-11.0156 HALT_STAGE1
+[eval] 168/200 762: s_dual=-2.1562 HALT_STAGE1
+[eval] 169/200 1014: s_dual=-12.2344 HALT_STAGE1
+[eval] 170/200 598: s_dual=-22.6875 HALT_STAGE1
+[eval] 171/200 638: s_dual=+12.2188 HALT_STAGE1
+[eval] 172/200 129: s_dual=-12.7812 HALT_STAGE1
+[eval] 173/200 878: s_dual=+12.0938 HALT_STAGE1
+[eval] 174/200 127: s_dual=-0.6406 ACCEPT
+[eval] 175/200 929: s_dual=+6.5156 HALT_STAGE1
+[eval] 176/200 524: s_dual=-15.7812 HALT_STAGE1
+[eval] 177/200 795: s_dual=-2.7344 ACCEPT
+[eval] 178/200 464: s_dual=+6.9062 HALT_STAGE1
+[eval] 179/200 942: s_dual=-0.7031 HALT_STAGE1
+[eval] 180/200 593: s_dual=-7.8594 ACCEPT
+[eval] 181/200 1072: s_dual=+4.3125 ACCEPT
+[eval] 182/200 891: s_dual=+10.8594 ACCEPT
+[eval] 183/200 798: s_dual=-5.1875 HALT_STAGE1
+[eval] 184/200 339: s_dual=+0.5313 HALT_STAGE1
+[eval] 185/200 403: s_dual=-8.9688 HALT_STAGE1
+[eval] 186/200 1279: s_dual=+8.6094 ACCEPT
+[eval] 187/200 1085: s_dual=+7.2344 HALT_STAGE1
+[eval] 188/200 1100: s_dual=+14.9219 ACCEPT
+[eval] 189/200 993: s_dual=+12.3125 HALT_STAGE1
+[eval] 190/200 885: s_dual=+8.6094 HALT_STAGE1
+[eval] 191/200 693: s_dual=-13.7344 HALT_STAGE1
+[eval] 192/200 899: s_dual=-3.5625 HALT_STAGE1
+[eval] 193/200 739: s_dual=+2.5156 HALT_STAGE1
+[eval] 194/200 711: s_dual=+14.5156 ACCEPT
+[eval] 195/200 915: s_dual=+3.3750 HALT_STAGE1
+[eval] 196/200 697: s_dual=-0.5000 HALT_STAGE1
+[eval] 197/200 85: s_dual=-17.1719 ACCEPT
+[eval] 198/200 1295: s_dual=+13.5312 HALT_STAGE1
+[eval] 199/200 879: s_dual=+8.0625 HALT_STAGE1
+[eval] 200/200 966: s_dual=-0.8125 HALT_STAGE1
+Legacy coupled operating points (Stage-1 V_m OR Stage-2):
+  default_uncalibrated_cutoff_0: TPR=0.9000 FPR=0.6800 F1=0.6977
+  v2_cal: TPR=0.7900 FPR=0.5700 F1=0.6695
+Decoupled Stage-1 / Stage-2 operating points:
+  stage1_vm_only: TPR=0.7700 FPR=0.5700 F1=0.6581
+  stage1_self_refusal_only: TPR=0.4500 FPR=0.0900 F1=0.5844
+  stage2_v2_cal_only: TPR=0.4300 FPR=0.0200 F1=0.5931 stealth_AUROC=0.8198
+  combined_self_refusal_or_v2_cal: TPR=0.6500 FPR=0.1100 F1=0.7386
+Wrote /kaggle/working/falseqa_phi35_mini/summary.json and /kaggle/working/falseqa_phi35_mini/summary.md

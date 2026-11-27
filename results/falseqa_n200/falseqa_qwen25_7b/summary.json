@@ -1,0 +1,117 @@
+{
+  "protocol": "FalseQA leakage-free disjoint valid/train calibration and test evaluation",
+  "dataset": "falseqa",
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "device": "cuda",
+  "dtype": "float16",
+  "seed": 42,
+  "calibration_n": 60,
+  "evaluation_n": 200,
+  "calibration_source": "cal",
+  "calibration": {
+    "method": "order_k",
+    "method_alias": "ordk",
+    "n_cal_neg": 30,
+    "max_fpr": 0.05,
+    "order_index": 1,
+    "cutoff": -10.820312857627869
+  },
+  "calibration_method": "order_k",
+  "calibration_method_alias": "ordk",
+  "n_cal_neg": 30,
+  "discrimination": {
+    "auroc": 0.8976,
+    "average_precision": 0.8987264079898152
+  },
+  "stage1_self_refusal_baseline": {
+    "self_refusal_rate": 0.215,
+    "false_premise_self_refusal_rate": 0.37
+  },
+  "operating_points": {
+    "default_uncalibrated_cutoff_0": {
+      "cutoff": 0.0,
+      "false_premise_halt_rate": 0.96,
+      "true_premise_false_halt_rate": 0.65,
+      "balanced_accuracy": 0.655,
+      "f1": 0.735632183908046,
+      "precision": 0.5962732919254659,
+      "recall": 0.96,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 96,
+      "fp": 65,
+      "tn": 35,
+      "fn": 4
+    },
+    "v2_cal": {
+      "cutoff": -10.820312857627869,
+      "false_premise_halt_rate": 0.68,
+      "true_premise_false_halt_rate": 0.33,
+      "balanced_accuracy": 0.675,
+      "f1": 0.6766169154228856,
+      "precision": 0.6732673267326733,
+      "recall": 0.68,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 68,
+      "fp": 33,
+      "tn": 67,
+      "fn": 32
+    }
+  },
+  "decoupled_operating_points": {
+    "stage1_vm_only": {
+      "false_premise_halt_rate": 0.33,
+      "true_premise_false_halt_rate": 0.3,
+      "balanced_accuracy": 0.515,
+      "f1": 0.40490797546012275,
+      "precision": 0.5238095238095238,
+      "recall": 0.33,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 33,
+      "fp": 30,
+      "tn": 70,
+      "fn": 67
+    },
+    "stage1_self_refusal_only": {
+      "false_premise_halt_rate": 0.37,
+      "true_premise_false_halt_rate": 0.06,
+      "balanced_accuracy": 0.655,
+      "f1": 0.5174825174825175,
+      "precision": 0.8604651162790697,
+      "recall": 0.37,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 37,
+      "fp": 6,
+      "tn": 94,
+      "fn": 63
+    },
+    "stage2_v2_cal_only": {
+      "false_premise_halt_rate": 0.55,
+      "true_premise_false_halt_rate": 0.03,
+      "balanced_accuracy": 0.76,
+      "f1": 0.6962025316455697,
+      "precision": 0.9482758620689655,
+      "recall": 0.55,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 55,
+      "fp": 3,
+      "tn": 97,
+      "fn": 45,
+      "stealth_auroc": 0.8696386355960825
+    },
+    "combined_self_refusal_or_v2_cal": {
+      "false_premise_halt_rate": 0.65,
+      "true_premise_false_halt_rate": 0.08,
+      "balanced_accuracy": 0.785,
+      "f1": 0.7514450867052024,
+      "precision": 0.8904109589041096,
+      "recall": 0.65,
+      "mean_latency_ms": 1766.087620445074,
+      "tp": 65,
+      "fp": 8,
+      "tn": 92,
+      "fn": 35
+    }
+  },
+  "mean_latency_ms": 1766.087620445074,
+  "checkpoint": "/kaggle/working/falseqa_qwen25_7b/falseqa_022e4322fa0f.jsonl"
+}

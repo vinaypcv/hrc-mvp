@@ -1,0 +1,117 @@
+{
+  "protocol": "FalseQA leakage-free disjoint valid/train calibration and test evaluation",
+  "dataset": "falseqa",
+  "model": "Qwen/Qwen2.5-3B-Instruct",
+  "device": "cuda",
+  "dtype": "float16",
+  "seed": 42,
+  "calibration_n": 60,
+  "evaluation_n": 200,
+  "calibration_source": "valid",
+  "calibration": {
+    "method": "order_k",
+    "method_alias": "ordk",
+    "n_cal_neg": 30,
+    "max_fpr": 0.05,
+    "order_index": 1,
+    "cutoff": -8.046875
+  },
+  "calibration_method": "order_k",
+  "calibration_method_alias": "ordk",
+  "n_cal_neg": 30,
+  "discrimination": {
+    "auroc": 0.7059,
+    "average_precision": 0.6429142478215099
+  },
+  "stage1_self_refusal_baseline": {
+    "self_refusal_rate": 0.2,
+    "false_premise_self_refusal_rate": 0.35
+  },
+  "operating_points": {
+    "default_uncalibrated_cutoff_0": {
+      "cutoff": 0.0,
+      "false_premise_halt_rate": 0.99,
+      "true_premise_false_halt_rate": 0.86,
+      "balanced_accuracy": 0.565,
+      "f1": 0.6947368421052631,
+      "precision": 0.5351351351351351,
+      "recall": 0.99,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 99,
+      "fp": 86,
+      "tn": 14,
+      "fn": 1
+    },
+    "v2_cal": {
+      "cutoff": -8.046875,
+      "false_premise_halt_rate": 0.59,
+      "true_premise_false_halt_rate": 0.54,
+      "balanced_accuracy": 0.5249999999999999,
+      "f1": 0.5539906103286385,
+      "precision": 0.5221238938053098,
+      "recall": 0.59,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 59,
+      "fp": 54,
+      "tn": 46,
+      "fn": 41
+    }
+  },
+  "decoupled_operating_points": {
+    "stage1_vm_only": {
+      "false_premise_halt_rate": 0.54,
+      "true_premise_false_halt_rate": 0.5,
+      "balanced_accuracy": 0.52,
+      "f1": 0.5294117647058824,
+      "precision": 0.5192307692307693,
+      "recall": 0.54,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 54,
+      "fp": 50,
+      "tn": 50,
+      "fn": 46
+    },
+    "stage1_self_refusal_only": {
+      "false_premise_halt_rate": 0.35,
+      "true_premise_false_halt_rate": 0.05,
+      "balanced_accuracy": 0.6499999999999999,
+      "f1": 0.4999999999999999,
+      "precision": 0.875,
+      "recall": 0.35,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 35,
+      "fp": 5,
+      "tn": 95,
+      "fn": 65
+    },
+    "stage2_v2_cal_only": {
+      "false_premise_halt_rate": 0.17,
+      "true_premise_false_halt_rate": 0.12,
+      "balanced_accuracy": 0.525,
+      "f1": 0.2635658914728682,
+      "precision": 0.5862068965517241,
+      "recall": 0.17,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 17,
+      "fp": 12,
+      "tn": 88,
+      "fn": 83,
+      "stealth_auroc": 0.6965182186234817
+    },
+    "combined_self_refusal_or_v2_cal": {
+      "false_premise_halt_rate": 0.48,
+      "true_premise_false_halt_rate": 0.17,
+      "balanced_accuracy": 0.655,
+      "f1": 0.5818181818181819,
+      "precision": 0.7384615384615385,
+      "recall": 0.48,
+      "mean_latency_ms": 1309.8765705950007,
+      "tp": 48,
+      "fp": 17,
+      "tn": 83,
+      "fn": 52
+    }
+  },
+  "mean_latency_ms": 1309.8765705950007,
+  "checkpoint": "/kaggle/working/falseqa_qwen25_3b/falseqa_2a0d48d05298.jsonl"
+}

@@ -1,0 +1,117 @@
+{
+  "protocol": "FalseQA leakage-free disjoint valid/train calibration and test evaluation",
+  "dataset": "falseqa",
+  "model": "microsoft/Phi-3.5-mini-instruct",
+  "device": "cuda",
+  "dtype": "float16",
+  "seed": 42,
+  "calibration_n": 60,
+  "evaluation_n": 200,
+  "calibration_source": "valid",
+  "calibration": {
+    "method": "order_k",
+    "method_alias": "ordk",
+    "n_cal_neg": 30,
+    "max_fpr": 0.05,
+    "order_index": 1,
+    "cutoff": -11.25
+  },
+  "calibration_method": "order_k",
+  "calibration_method_alias": "ordk",
+  "n_cal_neg": 30,
+  "discrimination": {
+    "auroc": 0.8542,
+    "average_precision": 0.8733147217829649
+  },
+  "stage1_self_refusal_baseline": {
+    "self_refusal_rate": 0.27,
+    "false_premise_self_refusal_rate": 0.45
+  },
+  "operating_points": {
+    "default_uncalibrated_cutoff_0": {
+      "cutoff": 0.0,
+      "false_premise_halt_rate": 0.9,
+      "true_premise_false_halt_rate": 0.68,
+      "balanced_accuracy": 0.61,
+      "f1": 0.6976744186046512,
+      "precision": 0.569620253164557,
+      "recall": 0.9,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 90,
+      "fp": 68,
+      "tn": 32,
+      "fn": 10
+    },
+    "v2_cal": {
+      "cutoff": -11.25,
+      "false_premise_halt_rate": 0.79,
+      "true_premise_false_halt_rate": 0.57,
+      "balanced_accuracy": 0.6100000000000001,
+      "f1": 0.6694915254237288,
+      "precision": 0.5808823529411765,
+      "recall": 0.79,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 79,
+      "fp": 57,
+      "tn": 43,
+      "fn": 21
+    }
+  },
+  "decoupled_operating_points": {
+    "stage1_vm_only": {
+      "false_premise_halt_rate": 0.77,
+      "true_premise_false_halt_rate": 0.57,
+      "balanced_accuracy": 0.6000000000000001,
+      "f1": 0.6581196581196581,
+      "precision": 0.5746268656716418,
+      "recall": 0.77,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 77,
+      "fp": 57,
+      "tn": 43,
+      "fn": 23
+    },
+    "stage1_self_refusal_only": {
+      "false_premise_halt_rate": 0.45,
+      "true_premise_false_halt_rate": 0.09,
+      "balanced_accuracy": 0.68,
+      "f1": 0.5844155844155844,
+      "precision": 0.8333333333333334,
+      "recall": 0.45,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 45,
+      "fp": 9,
+      "tn": 91,
+      "fn": 55
+    },
+    "stage2_v2_cal_only": {
+      "false_premise_halt_rate": 0.43,
+      "true_premise_false_halt_rate": 0.02,
+      "balanced_accuracy": 0.705,
+      "f1": 0.593103448275862,
+      "precision": 0.9555555555555556,
+      "recall": 0.43,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 43,
+      "fp": 2,
+      "tn": 98,
+      "fn": 57,
+      "stealth_auroc": 0.8197802197802198
+    },
+    "combined_self_refusal_or_v2_cal": {
+      "false_premise_halt_rate": 0.65,
+      "true_premise_false_halt_rate": 0.11,
+      "balanced_accuracy": 0.77,
+      "f1": 0.7386363636363636,
+      "precision": 0.8552631578947368,
+      "recall": 0.65,
+      "mean_latency_ms": 2668.4888079050234,
+      "tp": 65,
+      "fp": 11,
+      "tn": 89,
+      "fn": 35
+    }
+  },
+  "mean_latency_ms": 2668.4888079050234,
+  "checkpoint": "/kaggle/working/falseqa_phi35_mini/falseqa_9ef6973821c1.jsonl"
+}
